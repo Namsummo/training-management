@@ -1,9 +1,9 @@
-import SignInPage from "./SignInPage";
+import ForgetPassword from "./ForgetPassword";
 
 export default function page() {
   return (
     <>
-      <SignInPage />
+      <ForgetPassword />
     </>
   );
 }

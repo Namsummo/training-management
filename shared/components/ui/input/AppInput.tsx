@@ -5,7 +5,6 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const inputContainerVariants = cva(
-  // base container styles
   "relative flex items-center w-[480px] h-[48px] rounded-md border border-slate-200 bg-background transition-colors hover:border-[#4541b3] focus-within:border-[#4541b3] focus-within:ring-2 focus-within:ring-[#4541b3]/20",
   {
     variants: {
@@ -24,7 +23,6 @@ const inputContainerVariants = cva(
 );
 
 const inputVariants = cva(
-  // base input styles
   "flex-1 h-full bg-transparent px-3 py-2 text-sm outline-none placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-50",
   {
     variants: {
@@ -44,7 +42,6 @@ export interface AppInputProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size">,
     VariantProps<typeof inputContainerVariants> {
   label?: string;
-  error?: string;
   helperText?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
@@ -57,7 +54,6 @@ export const AppInput = React.forwardRef<HTMLInputElement, AppInputProps>(
       className,
       variant,
       label,
-      error,
       helperText,
       leftIcon,
       rightIcon,
@@ -70,25 +66,20 @@ export const AppInput = React.forwardRef<HTMLInputElement, AppInputProps>(
   ) => {
     const generatedId = React.useId();
     const inputId = id || generatedId;
-    const hasError = Boolean(error || variant === "error");
     const hasLeftIcon = !!leftIcon;
     const hasRightIcon = !!rightIcon;
 
     return (
-      <div className="space-y-1">
+      <div className="space-y-3">
         {label && (
-          <label
-            htmlFor={inputId}
-            className="text-sm font-medium text-slate-700"
-          >
+          <label htmlFor={inputId} className="text-sm font-medium text-black">
             {label}
           </label>
         )}
+
         <div
           className={cn(
-            inputContainerVariants({
-              variant: hasError ? "error" : variant,
-            }),
+            inputContainerVariants({ variant }),
             fullWidth && "w-full",
             className
           )}
@@ -108,12 +99,6 @@ export const AppInput = React.forwardRef<HTMLInputElement, AppInputProps>(
                 hasRightIcon,
               })
             )}
-            {...(hasError && { "aria-invalid": true })}
-            aria-describedby={
-              error || helperText
-                ? `${inputId}-${error ? "error" : "helper"}`
-                : undefined
-            }
             {...props}
           />
           {rightIcon && (
@@ -122,16 +107,7 @@ export const AppInput = React.forwardRef<HTMLInputElement, AppInputProps>(
             </div>
           )}
         </div>
-        {error && (
-          <p
-            id={`${inputId}-error`}
-            className="text-xs text-red-600"
-            role="alert"
-          >
-            {error}
-          </p>
-        )}
-        {helperText && !error && (
+        {helperText && (
           <p id={`${inputId}-helper`} className="text-xs text-slate-500">
             {helperText}
           </p>

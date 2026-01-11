@@ -19,10 +19,10 @@ const buttonVariants = cva(
         ghost: "bg-transparent hover:bg-accent hover:text-accent-foreground",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        light: "bg-[#E9ECEF] text-black hover:bg-[#DEE2E6]",
       },
 
       size: {
-        // ⭐ DEFAULT theo yêu cầu
         default: "h-10 w-[175px] px-4 text-sm",
 
         sm: "h-8 px-3 text-sm font-normal",
