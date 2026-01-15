@@ -54,6 +54,7 @@
   --popover-foreground: oklch(0.129 0.042 264.695);
   /* primary brand color cho toàn app */
   --primary: #4541b3;
+  --primary-menu: #5954E6;
   --primary-foreground: #ffffff;
   --secondary: oklch(0.968 0.007 247.896);
   --secondary-foreground: oklch(0.208 0.042 265.755);
