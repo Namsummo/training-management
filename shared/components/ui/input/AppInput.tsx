@@ -5,7 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const inputContainerVariants = cva(
-  "relative flex items-center w-[480px] h-[48px] rounded-md border border-slate-200 bg-background transition-colors hover:border-[#4541b3] focus-within:border-[#4541b3] focus-within:ring-2 focus-within:ring-[#4541b3]/20",
+  "relative flex items-center w-full h-[48px] rounded-md border border-slate-200 bg-background transition-colors hover:border-[#4541b3] focus-within:border-[#4541b3] focus-within:ring-2 focus-within:ring-[#4541b3]/20",
   {
     variants: {
       variant: {
