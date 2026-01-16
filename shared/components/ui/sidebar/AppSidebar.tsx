@@ -67,7 +67,10 @@ export function AppSidebar({ title, items, children }: AppSidebarProps) {
     if (!item.children) {
       return !!item.url && pathname.startsWith(item.url);
     }
-    return item.children.some((child) => pathname === child.url);
+    // If the parent has its own url that matches the current path, treat it as active
+    if (item.url && pathname.startsWith(item.url)) return true;
+    // Treat a parent active when any of its children match the current path (prefix match)
+    return item.children.some((child) => pathname.startsWith(child.url));
   };
 
   return (
@@ -89,7 +92,8 @@ export function AppSidebar({ title, items, children }: AppSidebarProps) {
                {items.map((item) => {
                  const Icon = item.icon;
                  const isActive = isParentActive(item);
-                 const isExpanded = expandedItems.has(item.title);
+                 // auto-expand when the item is active or when user explicitly expanded it
+                 const isExpanded = expandedItems.has(item.title) || isActive;
   
   if (!item.children) {
     return (
@@ -242,7 +246,7 @@ export const coachMenuItems: MenuItem[] = [
     },
     {
       title: "Lesson Plan",
-      url: "/coach/exercises/lesson-plan",
+      url: "/coach/exercises/lesson-plan/list",
     },
   ],
 },
@@ -252,10 +256,21 @@ export const coachMenuItems: MenuItem[] = [
     url: "/coach/athletes",
     icon: UsersRoundIcon,
   },
+  
   {
     title: "AI Analytics",
     url: "/coach/ai",
     icon: Globe,
+    children: [
+      {
+        title: "Performance",
+        url: "/coach/ai/performance",
+      },
+      {
+        title: "Injury Risks",
+        url: "/coach/ai/injury-risks",
+      },
+    ],
   },
   {
     title: "Chat& FeedBacks",

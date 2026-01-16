@@ -280,11 +280,30 @@ export default function CreateExercisePage() {
                 </div>
               )}
               <AppInput label="Exercise Subtitle" placeholder="e.g. High Intensity Dribbling Drill" value={subtitle} onChange={(e: any) => setSubtitle(e.target.value)} />
-              <AppInput label="Category" placeholder="e.g. 4v4 High Press Transition" value={category} onChange={(e: any) => setCategory(e.target.value)} />
+
+              <div>
+                <label className="text-sm font-medium">Category</label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="mt-2 w-full rounded-md border border-slate-200 bg-background px-3 py-2 text-sm outline-none"
+                >
+                  <option value="">Select category</option>
+                  <option value="training">training</option>
+                  <option value="diet">diet</option>
+                  <option value="other">other</option>
+                  <option value="warm-up">warm-up</option>
+                  <option value="technical">technical</option>
+                  <option value="tactical">tactical</option>
+                  <option value="match-simulation">match-simulation</option>
+                  <option value="recovery">recovery</option>
+                  <option value="injury-prevention">injury-prevention</option>
+                </select>
+              </div>
 
               <div>
                 <label className="text-sm font-medium text-black">Position Relevance</label>
-                <div className="mt-2 flex flex-wrap gap-2">
+                <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="Position relevance">
                   {[
                     { key: "Forward", label: "Forward" },
                     { key: "Defense", label: "Defense" },
@@ -296,11 +315,11 @@ export default function CreateExercisePage() {
                       <button
                         key={pos.key}
                         type="button"
-                        aria-pressed={selected}
+                        role="radio"
+                        aria-checked={selected}
                         onClick={() => {
-                          setPositionsSelected((prev) =>
-                            prev.includes(pos.key) ? prev.filter((p) => p !== pos.key) : [...prev, pos.key]
-                          );
+                          // enforce single selection (radio behavior)
+                          setPositionsSelected([pos.key]);
                         }}
                         className={`rounded-full px-3 py-1 text-xs transition-colors focus:outline-none ${
                           selected
