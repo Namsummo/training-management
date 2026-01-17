@@ -80,7 +80,11 @@ export default function EditExercisePage() {
         // attempt to extract youtube id like create page
         try {
           const id = extractYouTubeId(data.video_path || data.video_url || "");
-          if (id) setYoutubeId(id);
+          if (id) {
+            setYoutubeId(id);
+            // try to fetch thumbnail and duration (best-effort)
+            fetchYouTubeMeta(id, data.video_path || data.video_url || "");
+          }
         } catch (e) {
           /* ignore */
         }
@@ -126,6 +130,45 @@ export default function EditExercisePage() {
   };
 
   const isDirectVideo = (url: string) => /\.(mp4|webm|ogg)(\?.*)?$/i.test(url);
+
+  // fetch additional metadata for YouTube id: better thumbnail and duration
+  const fetchYouTubeMeta = async (id: string, originalUrl?: string) => {
+    try {
+      const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(
+        originalUrl || `https://www.youtube.com/watch?v=${id}`
+      )}&format=json`;
+      const r = await fetch(oembedUrl);
+      if (r.ok) {
+        const j = await r.json();
+        if (j.thumbnail_url) {
+          setThumbnail(j.thumbnail_url);
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    try {
+      const watchUrl = `https://www.youtube.com/watch?v=${id}`;
+      const r2 = await fetch(watchUrl);
+      if (r2.ok) {
+        const text = await r2.text();
+        let m = text.match(/"lengthSeconds"\s*:\s*"?(\d+)"?/);
+        if (m && m[1]) {
+          setDuration(String(Math.max(0, parseInt(m[1], 10))));
+          return;
+        }
+        m = text.match(/"approxDurationMs"\s*:\s*"?(\d+)"?/);
+        if (m && m[1]) {
+          const secs = Math.round(parseInt(m[1], 10) / 1000);
+          setDuration(String(Math.max(0, secs)));
+          return;
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
 
   // submit via PUT to update
   const submitUpdate = async () => {

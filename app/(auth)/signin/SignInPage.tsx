@@ -23,6 +23,9 @@ import Link from "next/link";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+
+const DEFAULT_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://vitex.duckdns.org/api/v1").replace(/\/$/, "");
 
 const signInSchema = z.object({
   email: z.string().email("This is an error message"),
@@ -33,6 +36,9 @@ type SignInFormValues = z.infer<typeof signInSchema>;
 
 export default function SignInPage() {
   const [showPass, setShowpass] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const form = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
@@ -43,8 +49,47 @@ export default function SignInPage() {
     },
   });
 
-  function onSubmit(values: SignInFormValues) {
-    console.log(values);
+  async function onSubmit(values: SignInFormValues) {
+    setError(null);
+    setLoading(true);
+    try {
+      const body = new URLSearchParams();
+      body.append("email", values.email);
+      body.append("password", values.password);
+
+      const res = await fetch(`${DEFAULT_BASE}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: body.toString(),
+      });
+
+      const json = await res.json();
+
+      if (json?.success && json?.data?.token) {
+        // store token for subsequent requests
+        if (typeof window !== "undefined") {
+          localStorage.setItem("api_token", json.data.token);
+          try {
+            localStorage.setItem("api_user", JSON.stringify(json.data.user || {}));
+          } catch (e) {
+            // ignore storage errors
+          }
+        }
+
+        // redirect to coach dashboard (or home)
+        router.push("/coach/dashboard");
+        return;
+      }
+
+      setError(json?.message || "Login failed");
+    } catch (e) {
+      console.error("Login error", e);
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

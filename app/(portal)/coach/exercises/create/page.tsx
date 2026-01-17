@@ -163,9 +163,54 @@ export default function CreateExercisePage() {
       setYoutubeId(id);
       // try maxres first, fallback handled by onError
       setThumbnail(`https://img.youtube.com/vi/${id}/maxresdefault.jpg`);
+      // try to enhance metadata (better thumbnail + duration)
+      fetchYouTubeMeta(id, value.trim());
     } else {
       setYoutubeId(null);
       setThumbnail("");
+    }
+  };
+
+  // fetch additional metadata for YouTube id: better thumbnail and duration
+  const fetchYouTubeMeta = async (id: string, originalUrl?: string) => {
+    // prefer oEmbed thumbnail if available
+    try {
+      const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(
+        originalUrl || `https://www.youtube.com/watch?v=${id}`
+      )}&format=json`;
+      const r = await fetch(oembedUrl);
+      if (r.ok) {
+        const j = await r.json();
+        if (j.thumbnail_url) {
+          setThumbnail(j.thumbnail_url);
+        }
+      }
+    } catch (e) {
+      // ignore oembed failures
+    }
+
+    // try to read duration from the video's watch page (best-effort, may fail due to CORS)
+    try {
+      const watchUrl = `https://www.youtube.com/watch?v=${id}`;
+      const r2 = await fetch(watchUrl);
+      if (r2.ok) {
+        const text = await r2.text();
+        // try to extract lengthSeconds or approxDurationMs
+        let m = text.match(/"lengthSeconds"\s*:\s*"?(\d+)"?/);
+        if (m && m[1]) {
+          setDuration(String(Math.max(0, parseInt(m[1], 10))));
+          return;
+        }
+
+        m = text.match(/"approxDurationMs"\s*:\s*"?(\d+)"?/);
+        if (m && m[1]) {
+          const secs = Math.round(parseInt(m[1], 10) / 1000);
+          setDuration(String(Math.max(0, secs)));
+          return;
+        }
+      }
+    } catch (e) {
+      // ignore duration fetch errors (CORS likely)
     }
   };
 

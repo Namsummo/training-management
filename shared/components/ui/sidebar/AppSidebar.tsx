@@ -31,6 +31,8 @@ import {
   SidebarInset,
 } from "@/components/ui/sidebar";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { clearAuth } from "@/shared/lib/auth";
 
 export type MenuItem = {
   title: string;
@@ -52,6 +54,7 @@ type AppSidebarProps = {
 export function AppSidebar({ title, items, children }: AppSidebarProps) {
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const router = useRouter();
 
   const toggleExpanded = (title: string) => {
     const newExpanded = new Set(expandedItems);
@@ -183,7 +186,14 @@ export function AppSidebar({ title, items, children }: AppSidebarProps) {
                   tooltip="Logout"
                   className=" w-[216px] h-[40px] ml-2 "
                   onClick={() => {
-                    console.log("logout");
+                    try {
+                      // remove token and user from localStorage
+                      clearAuth();
+                    } catch (e) {
+                      // ignore
+                    }
+                    // redirect to signin and replace history so back doesn't return to protected pages
+                    router.replace("/signin");
                   }}
                 >
                   <LogOut className="size-5" />
