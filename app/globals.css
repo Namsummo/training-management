@@ -143,3 +143,44 @@
 .fc-daygrid-event-harness {
   margin: 4px 6px;
 }
+
+/* FullCalendar custom styles */
+.fc {
+  font-family: var(--font-sans) !important;
+}
+
+.fc-toolbar-title {
+  color: var(--foreground) !important;
+  font-weight: 600 !important;
+}
+
+.fc-button {
+  background-color: var(--primary) !important;
+  border-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.fc-button:hover {
+  background-color: var(--primary) !important;
+  opacity: 0.9 !important;
+}
+
+.fc-button-active {
+  background-color: var(--primary) !important;
+}
+
+.fc-daygrid-day-number {
+  color: var(--foreground) !important;
+}
+
+.fc-col-header-cell {
+  background-color: var(--muted) !important;
+}
+
+.fc-theme-standard .fc-scrollgrid {
+  border-color: var(--border) !important;
+}
+
+.fc-day-today {
+  background-color: var(--muted) !important;
+}

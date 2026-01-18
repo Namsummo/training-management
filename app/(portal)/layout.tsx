@@ -91,6 +91,7 @@ export default function PortalLayout({
       </header>
 
       {/* Content */}
+
       <main className="flex-1 space-y-6 p-6 bg-muted/40">{children}</main>
     </AppSidebar>
   );
