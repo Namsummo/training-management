@@ -126,3 +126,20 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* REMOVE ALL EVENT BORDERS */
+.fc-event,
+.fc-event-main,
+.fc-daygrid-event,
+.fc-daygrid-block-event,
+.fc-h-event {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+.fc-event {
+  background: transparent !important;
+}
+.fc-daygrid-event-harness {
+  margin: 4px 6px;
+}

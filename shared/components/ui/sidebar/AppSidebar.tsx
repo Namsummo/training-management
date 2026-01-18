@@ -44,7 +44,6 @@ export type MenuItem = {
   }[];
 };
 
-
 type AppSidebarProps = {
   title: string | React.ReactNode;
   items: MenuItem[];
@@ -92,79 +91,80 @@ export function AppSidebar({ title, items, children }: AppSidebarProps) {
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
-               {items.map((item) => {
-                 const Icon = item.icon;
-                 const isActive = isParentActive(item);
-                 // auto-expand when the item is active or when user explicitly expanded it
-                 const isExpanded = expandedItems.has(item.title) || isActive;
-  
-  if (!item.children) {
-    return (
-      <SidebarMenuItem key={item.title}>
-        <SidebarMenuButton
-          asChild
-          isActive={isActive}
-          tooltip={item.title}
-          className="h-10 px-3 ml-2  data-[active=true]:bg-[#5954E6] data-[active=true]:text-white"
-        >
-          <Link href={item.url!} className="flex items-center gap-2">
-            <Icon className="size-5 shrink-0" />
-            <span>{item.title}</span>
-          </Link>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-    );
-  }
+                {items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = isParentActive(item);
+                  const isExpanded = expandedItems.has(item.title);
+                  if (!item.children) {
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive}
+                          tooltip={item.title}
+                          className="h-10 px-3 ml-2  data-[active=true]:bg-[#5954E6] data-[active=true]:text-white"
+                        >
+                          <Link
+                            href={item.url!}
+                            className="flex items-center gap-2"
+                          >
+                            <Icon className="size-5 shrink-0" />
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  }
 
-  return (
-    <SidebarMenuItem key={item.title}>
-      {/* Parent */}
-      <SidebarMenuButton
-        onClick={() => toggleExpanded(item.title)}
-        isActive={isActive}
-        className="h-10 px-3 ml-2 data-[active=true]:bg-[#5954E6] data-[active=true]:text-white data-[active=true]:font-semibold"
-      >
-        <div className="flex items-center gap-2 w-full justify-between">
-          <div className="flex items-center gap-2">
-            <Icon className="size-5 shrink-0" />
-            <span>{item.title}</span>
-          </div>
-          {isExpanded ? (
-            <ChevronDown className="size-4" />
-          ) : (
-            <ChevronRight className="size-4" />
-          )}
-        </div>
-      </SidebarMenuButton>
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      {/* Parent */}
+                      <SidebarMenuButton
+                        onClick={() => toggleExpanded(item.title)}
+                        isActive={isActive}
+                        className="h-10 px-3 ml-2 data-[active=true]:bg-[#5954E6] data-[active=true]:text-white data-[active=true]:font-semibold"
+                      >
+                        <div className="flex items-center gap-2 w-full justify-between">
+                          <div className="flex items-center gap-2">
+                            <Icon className="size-5 shrink-0" />
+                            <span>{item.title}</span>
+                          </div>
+                          {isExpanded ? (
+                            <ChevronDown className="size-4" />
+                          ) : (
+                            <ChevronRight className="size-4" />
+                          )}
+                        </div>
+                      </SidebarMenuButton>
 
-      {/* Children */}
-      {isExpanded && (
-        <div className="ml-8 mt-1 space-y-1">
-          {item.children.map((child) => {
-            const isChildActive = pathname === child.url;
+                      {/* Children */}
+                      {isExpanded && (
+                        <div className="ml-8 mt-1 space-y-1">
+                          {item.children.map((child) => {
+                            const isChildActive = pathname === child.url;
 
-            return (
-              <SidebarMenuButton
-                key={child.url}
-                asChild
-                isActive={isChildActive}
-                className="
+                            return (
+                              <SidebarMenuButton
+                                key={child.url}
+                                asChild
+                                isActive={isChildActive}
+                                className="
                   h-9  px-3 text-sm
                   data-[active=true]:bg-[#F7F8FB]
                   data-[active=true]:font-semibold
                   data-[active=true]:text-black
                 "
-              >
-                <Link href={child.url}>{child.title}</Link>
-              </SidebarMenuButton>
-            );
-          })}
-        </div>
-      )}
-    </SidebarMenuItem>
-  );
-})}
-                </SidebarMenu>
+                              >
+                                <Link href={child.url}>{child.title}</Link>
+                              </SidebarMenuButton>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
               <div className="border-t border-dashed mt-2" />
               <SidebarMenuItem>
                 <SidebarMenuButton
@@ -191,6 +191,7 @@ export function AppSidebar({ title, items, children }: AppSidebarProps) {
                       clearAuth();
                     } catch (e) {
                       // ignore
+                      console.log("e", e);
                     }
                     // redirect to signin and replace history so back doesn't return to protected pages
                     router.replace("/signin");
@@ -209,7 +210,7 @@ export function AppSidebar({ title, items, children }: AppSidebarProps) {
               {/* Avatar */}
               <div className="h-9 w-9 rounded-full overflow-hidden bg-muted">
                 <Image
-                  src="/images/bot.png" 
+                  src="/images/bot.png"
                   alt="Current user"
                   width={36}
                   height={36}
@@ -245,28 +246,28 @@ export const coachMenuItems: MenuItem[] = [
     url: "/coach/schedule",
     icon: Calendar,
   },
- {
-  title: "Exercises",
-  url: "/coach/exercises/list", 
-  icon: NotebookTextIcon,
-  children: [
-    {
-      title: "Exercise List",
-      url: "/coach/exercises/list",
-    },
-    {
-      title: "Lesson Plan",
-      url: "/coach/exercises/lesson-plan/list",
-    },
-  ],
-},
+  {
+    title: "Exercises",
+    url: "/coach/exercises/list",
+    icon: NotebookTextIcon,
+    children: [
+      {
+        title: "Exercise List",
+        url: "/coach/exercises/list",
+      },
+      {
+        title: "Lesson Plan",
+        url: "/coach/exercises/lesson-plan",
+      },
+    ],
+  },
 
   {
     title: "Athlete List",
     url: "/coach/athletes",
     icon: UsersRoundIcon,
   },
-  
+
   {
     title: "AI Analytics",
     url: "/coach/ai",
