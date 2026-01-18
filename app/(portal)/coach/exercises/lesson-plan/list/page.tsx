@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AppInput } from "@/shared/components/ui/input/AppInput";
 import { AppButton } from "@/shared/components/ui/button/AppButton";
@@ -13,13 +13,18 @@ type Plan = {
   athletes: number;
   updated: string;
 };
+const DEFAULT_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://vitex.duckdns.org/api/v1").replace(/\/$/, "");
 
-const SAMPLE_PLANS: Plan[] = [
-  { id: "1", name: "Off-Season Strength Phase", status: "Active", duration: "12 Weeks", athletes: 7, updated: "2 days ago" },
-  { id: "2", name: "Marathon Prep - Week 1-4", status: "Active", duration: "4 Weeks", athletes: 3, updated: "1 week ago" },
-  { id: "3", name: "High-Intensity Interval Block", status: "Draft", duration: "6 Weeks", athletes: 0, updated: "3 days ago" },
-  { id: "4", name: "Winter Conditioning Base", status: "Completed", duration: "8 Weeks", athletes: 4, updated: "1 month ago" },
-];
+type ApiPagination = {
+  current_page?: number;
+  from?: number;
+  to?: number;
+  per_page?: number;
+  total?: number;
+  last_page?: number;
+};
+
+const SAMPLE_PLANS: Plan[] = [];
 
 export default function page() {
   const router = useRouter();
@@ -27,9 +32,12 @@ export default function page() {
   const [filter, setFilter] = useState<"All" | "Active" | "Draft" | "Archived">("All");
   const [page, setPage] = useState(1);
   const perPage = 10;
+  const [plans, setPlans] = useState<Plan[]>(SAMPLE_PLANS);
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState<ApiPagination>({});
 
   const filtered = useMemo(() => {
-    return SAMPLE_PLANS.filter((p) => {
+    return plans.filter((p) => {
       if (filter !== "All") {
         if (filter === "Archived") return p.status === "Completed"; // use Completed as archived proxy
         if (p.status !== filter) return false;
@@ -37,10 +45,75 @@ export default function page() {
       if (!query) return true;
       return p.name.toLowerCase().includes(query.toLowerCase());
     });
-  }, [query, filter]);
+  }, [query, filter, plans]);
 
   const start = (page - 1) * perPage;
   const pageItems = filtered.slice(start, start + perPage);
+
+  useEffect(() => {
+    // fetch plans from API when page changes
+    const fetchPlans = async () => {
+      setLoading(true);
+      try {
+        const startDate = new Date().toISOString().slice(0, 10); // default to today
+        // read token from localStorage or env fallback
+        let token = "";
+        if (typeof window !== 'undefined') {
+          token = localStorage.getItem('token') || localStorage.getItem('auth_token') || localStorage.getItem('access_token') || localStorage.getItem('api_token') || '';
+        }
+        if (!token) token = (process.env.NEXT_PUBLIC_API_TOKEN as string) || '';
+
+        const url = `${DEFAULT_BASE}/plans?start_date=${encodeURIComponent(startDate)}&get_all=0&per_page=${perPage}&page=${page}`;
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(url, { headers });
+        const json = await res.json();
+        const data = json?.data || {};
+        const items = data?.data || [];
+        const mapped: Plan[] = (items || []).map((p: any) => {
+          // compute duration roughly as weeks or days
+          let duration = '—';
+          try {
+            const s = p.start_date ? new Date(p.start_date) : null;
+            const e = p.end_date ? new Date(p.end_date) : null;
+            if (s && e && !isNaN(s.getTime()) && !isNaN(e.getTime())) {
+              const days = Math.max(1, Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+              if (days >= 7) duration = `${Math.ceil(days / 7)} Weeks`;
+              else duration = `${days} days`;
+            }
+          } catch (e) {
+            /* ignore */
+          }
+
+          return {
+            id: String(p.id),
+            name: p.name || '',
+            status: (p.status || 'draft').toLowerCase() === 'draft' ? 'Draft' : (p.status || 'active').toLowerCase() === 'active' ? 'Active' : 'Completed',
+            duration,
+            athletes: (p.users && Array.isArray(p.users)) ? p.users.length : 0,
+            updated: p.updated_at ? new Date(p.updated_at).toLocaleDateString() : (p.created_at ? new Date(p.created_at).toLocaleDateString() : ''),
+          } as Plan;
+        });
+
+        setPlans(mapped);
+        setPagination({
+          current_page: data.current_page,
+          from: data.from,
+          to: data.to,
+          per_page: data.per_page,
+          total: data.total,
+          last_page: data.last_page,
+        });
+      } catch (err) {
+        console.error('Failed to load plans', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPlans();
+  }, [page]);
 
   return (
     <div className="p-6">

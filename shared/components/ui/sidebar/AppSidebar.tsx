@@ -257,7 +257,7 @@ export const coachMenuItems: MenuItem[] = [
       },
       {
         title: "Lesson Plan",
-        url: "/coach/exercises/lesson-plan",
+        url: "/coach/exercises/lesson-plan/list",
       },
     ],
   },
