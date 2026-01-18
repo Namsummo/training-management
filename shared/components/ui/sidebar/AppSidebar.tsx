@@ -31,6 +31,8 @@ import {
   SidebarInset,
 } from "@/components/ui/sidebar";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { clearAuth } from "@/shared/lib/auth";
 
 export type MenuItem = {
   title: string;
@@ -51,6 +53,7 @@ type AppSidebarProps = {
 export function AppSidebar({ title, items, children }: AppSidebarProps) {
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const router = useRouter();
 
   const toggleExpanded = (title: string) => {
     const newExpanded = new Set(expandedItems);
@@ -66,7 +69,10 @@ export function AppSidebar({ title, items, children }: AppSidebarProps) {
     if (!item.children) {
       return !!item.url && pathname.startsWith(item.url);
     }
-    return item.children.some((child) => pathname === child.url);
+    // If the parent has its own url that matches the current path, treat it as active
+    if (item.url && pathname.startsWith(item.url)) return true;
+    // Treat a parent active when any of its children match the current path (prefix match)
+    return item.children.some((child) => pathname.startsWith(child.url));
   };
 
   return (
@@ -180,7 +186,15 @@ export function AppSidebar({ title, items, children }: AppSidebarProps) {
                   tooltip="Logout"
                   className=" w-[216px] h-[40px] ml-2 "
                   onClick={() => {
-                    console.log("logout");
+                    try {
+                      // remove token and user from localStorage
+                      clearAuth();
+                    } catch (e) {
+                      // ignore
+                      console.log("e", e);
+                    }
+                    // redirect to signin and replace history so back doesn't return to protected pages
+                    router.replace("/signin");
                   }}
                 >
                   <LogOut className="size-5" />
@@ -253,10 +267,21 @@ export const coachMenuItems: MenuItem[] = [
     url: "/coach/athletes",
     icon: UsersRoundIcon,
   },
+
   {
     title: "AI Analytics",
     url: "/coach/ai",
     icon: Globe,
+    children: [
+      {
+        title: "Performance",
+        url: "/coach/ai/performance",
+      },
+      {
+        title: "Injury Risks",
+        url: "/coach/ai/injury-risks",
+      },
+    ],
   },
   {
     title: "Chat& FeedBacks",

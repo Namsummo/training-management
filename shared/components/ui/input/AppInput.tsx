@@ -5,7 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const inputContainerVariants = cva(
-  "relative flex items-center w-[480px] h-[48px] rounded-md border border-slate-200 bg-background transition-colors hover:border-[#4541b3] focus-within:border-[#4541b3] focus-within:ring-2 focus-within:ring-[#4541b3]/20",
+  "relative flex items-center w-full h-[48px] rounded-md border border-slate-200 bg-background transition-colors hover:border-[#4541b3] focus-within:border-[#4541b3] focus-within:ring-2 focus-within:ring-[#4541b3]/20",
   {
     variants: {
       variant: {
@@ -64,53 +64,90 @@ export const AppInput = React.forwardRef<HTMLInputElement, AppInputProps>(
     },
     ref
   ) => {
-    const generatedId = React.useId();
-    const inputId = id || generatedId;
+    // Avoid server/client-generated ids (React.useId) which can
+    // produce different values between server and client in some
+    // rendering scenarios and trigger hydration mismatches. To keep
+    // accessibility we nest the input inside the <label> when a
+    // label is provided so htmlFor/id isn't required.
     const hasLeftIcon = !!leftIcon;
     const hasRightIcon = !!rightIcon;
 
     return (
       <div className="space-y-3">
-        {label && (
-          <label htmlFor={inputId} className="text-sm font-medium text-black">
-            {label}
-          </label>
-        )}
+        {label ? (
+          <label className="space-y-1 w-full">
+            <span className="text-sm font-medium text-black">{label}</span>
 
-        <div
-          className={cn(
-            inputContainerVariants({ variant }),
-            fullWidth && "w-full",
-            className
-          )}
-        >
-          {leftIcon && (
-            <div className="absolute left-3 flex items-center text-slate-400">
-              {leftIcon}
+            <div
+              className={cn(
+                inputContainerVariants({ variant }),
+                fullWidth && "w-full",
+                className
+              )}
+            >
+              {leftIcon && (
+                <div className="absolute left-3 flex items-center text-slate-400">
+                  {leftIcon}
+                </div>
+              )}
+              <input
+                ref={ref}
+                type={type}
+                className={cn(
+                  inputVariants({
+                    hasLeftIcon,
+                    hasRightIcon,
+                  })
+                )}
+                {...props}
+              />
+              {rightIcon && (
+                <div className="absolute right-3 flex items-center text-slate-400">
+                  {rightIcon}
+                </div>
+              )}
             </div>
-          )}
-          <input
-            ref={ref}
-            id={inputId}
-            type={type}
-            className={cn(
-              inputVariants({
-                hasLeftIcon,
-                hasRightIcon,
-              })
+
+            {helperText && (
+              <p className="text-xs text-slate-500">{helperText}</p>
             )}
-            {...props}
-          />
-          {rightIcon && (
-            <div className="absolute right-3 flex items-center text-slate-400">
-              {rightIcon}
+          </label>
+        ) : (
+          <>
+            <div
+              className={cn(
+                inputContainerVariants({ variant }),
+                fullWidth && "w-full",
+                className
+              )}
+            >
+              {leftIcon && (
+                <div className="absolute left-3 flex items-center text-slate-400">
+                  {leftIcon}
+                </div>
+              )}
+              <input
+                ref={ref}
+                type={type}
+                className={cn(
+                  inputVariants({
+                    hasLeftIcon,
+                    hasRightIcon,
+                  })
+                )}
+                {...props}
+              />
+              {rightIcon && (
+                <div className="absolute right-3 flex items-center text-slate-400">
+                  {rightIcon}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        {helperText && (
-          <p id={`${inputId}-helper`} className="text-xs text-slate-500">
-            {helperText}
-          </p>
+
+            {helperText && (
+              <p className="text-xs text-slate-500">{helperText}</p>
+            )}
+          </>
         )}
       </div>
     );
