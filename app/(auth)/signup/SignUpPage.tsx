@@ -23,17 +23,30 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useSignUp } from "@/shared/service/hooks/mutations/signUp.mutation";
+import { SignUpRequest } from "@/shared/service/types/signUp.type";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
-const signUpSchema = z.object({
-  name: z.string().nonempty("This is an error message"),
-  email: z.string().email("This is an error message"),
-  password: z.string().min(4, "This is an error message"),
-});
+const signUpSchema = z
+  .object({
+    name: z.string().nonempty("Name is required"),
+    email: z.string().email("Invalid email"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    password_confirmation: z.string().min(8, "Confirm password is required"),
+  })
+  .refine((data) => data.password === data.password_confirmation, {
+    message: "Passwords do not match",
+    path: ["password_confirmation"],
+  });
 
 type SignUpFormValues = z.infer<typeof signUpSchema>;
 
 export default function SignUpPage() {
   const [showPass, setShowpass] = useState<boolean>(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { mutate, isPending } = useSignUp()
+  const router = useRouter()
 
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
@@ -42,11 +55,31 @@ export default function SignUpPage() {
       name: "",
       email: "",
       password: "",
+      password_confirmation: ''
     },
   });
 
   function onSubmit(values: SignUpFormValues) {
-    console.log(values);
+    const payload: SignUpRequest = {
+      name: values.name,
+      email: values.email,
+      password: values.password,
+      password_confirmation: values.password_confirmation,
+    }
+    mutate(payload, {
+      onSuccess: (res) => {
+        toast.success("Success", {
+          description: res.message,
+        });
+
+        form.reset()
+        router.push("/coach/dashboard");
+
+      },
+      onError: () => {
+        toast.error("Error", { description: "Invalid information" })
+      },
+    })
   }
 
   return (
@@ -145,6 +178,42 @@ export default function SignUpPage() {
                   </FormItem>
                 )}
               />
+              <FormField
+                control={form.control}
+                name="password_confirmation"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <AppInput
+                        {...field}
+                        type={showConfirmPassword ? "text" : "password"}
+                        label="Confirm password"
+                        placeholder="Re-enter your password"
+                        fullWidth
+                        leftIcon={
+                          <RectangleEllipsisIcon size={16} className="text-black" />
+                        }
+                        rightIcon={
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="border-none hover:bg-white"
+                            onClick={() => setShowConfirmPassword((prev) => !prev)}
+                          >
+                            {showConfirmPassword ? (
+                              <EyeIcon size={16} className="text-black" />
+                            ) : (
+                              <EyeClosedIcon size={16} className="text-black" />
+                            )}
+                          </Button>
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
 
               <AppButton
                 type="submit"
@@ -153,7 +222,7 @@ export default function SignUpPage() {
                 disabled={!form.formState.isValid}
                 variant={form.formState.isValid ? "default" : "light"}
               >
-                Signup
+                {isPending ? "Signing up ..." : "Signup"}
               </AppButton>
 
               <div className="flex items-center gap-4">

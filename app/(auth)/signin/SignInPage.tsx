@@ -24,20 +24,21 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-
-const DEFAULT_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://vitex.duckdns.org/api/v1").replace(/\/$/, "");
+import { useLogin } from "@/shared/service/hooks/mutations/login.mutation";
+import { toast } from "sonner";
+import { LoginRequest } from "@/shared/service/types/login.type";
 
 const signInSchema = z.object({
-  email: z.string().email("This is an error message"),
-  password: z.string().min(4, "This is an error message"),
+  email: z.string().email("Invalid email"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
 type SignInFormValues = z.infer<typeof signInSchema>;
 
 export default function SignInPage() {
   const [showPass, setShowpass] = useState<boolean>(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { mutate, isPending } = useLogin();
+
   const router = useRouter();
 
   const form = useForm<SignInFormValues>({
@@ -49,48 +50,28 @@ export default function SignInPage() {
     },
   });
 
-  async function onSubmit(values: SignInFormValues) {
-    setError(null);
-    setLoading(true);
-    try {
-      const body = new URLSearchParams();
-      body.append("email", values.email);
-      body.append("password", values.password);
+  function onSubmit(values: SignInFormValues) {
+    const payload: LoginRequest = {
+      email: values.email,
+      password: values.password,
+    };
 
-      const res = await fetch(`${DEFAULT_BASE}/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: body.toString(),
-      });
-
-      const json = await res.json();
-
-      if (json?.success && json?.data?.token) {
-        // store token for subsequent requests
-        if (typeof window !== "undefined") {
-          localStorage.setItem("api_token", json.data.token);
-          try {
-            localStorage.setItem("api_user", JSON.stringify(json.data.user || {}));
-          } catch (e) {
-            // ignore storage errors
-          }
-        }
-
-        // redirect to coach dashboard (or home)
+    mutate(payload, {
+      onSuccess: (res) => {
+        toast.success("Login success", {
+          description: res.message,
+        });
+        localStorage.setItem("token", res.data.token);
         router.push("/coach/dashboard");
-        return;
-      }
-
-      setError(json?.message || "Login failed");
-    } catch (e) {
-      console.error("Login error", e);
-      setError("Network error. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+      },
+      onError: () => {
+        toast.error("Login failed", {
+          description: "Invalid email or password",
+        });
+      },
+    });
   }
+
 
   return (
     <div className="flex min-h-screen">
@@ -192,7 +173,7 @@ export default function SignInPage() {
                 disabled={!form.formState.isValid}
                 variant={form.formState.isValid ? "default" : "light"}
               >
-                Login
+                {isPending ? "Loging..." : "Login"}
               </AppButton>
 
               <div className="flex items-center gap-4">
