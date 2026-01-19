@@ -19,7 +19,7 @@ const inputContainerVariants = cva(
     defaultVariants: {
       variant: "default",
     },
-  }
+  },
 );
 
 const inputVariants = cva(
@@ -35,11 +35,12 @@ const inputVariants = cva(
         false: "",
       },
     },
-  }
+  },
 );
 
 export interface AppInputProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size">,
+  extends
+    Omit<React.InputHTMLAttributes<HTMLInputElement>, "size">,
     VariantProps<typeof inputContainerVariants> {
   label?: string;
   helperText?: string;
@@ -62,7 +63,7 @@ export const AppInput = React.forwardRef<HTMLInputElement, AppInputProps>(
       type = "text",
       ...props
     },
-    ref
+    ref,
   ) => {
     // Avoid server/client-generated ids (React.useId) which can
     // produce different values between server and client in some
@@ -82,7 +83,7 @@ export const AppInput = React.forwardRef<HTMLInputElement, AppInputProps>(
               className={cn(
                 inputContainerVariants({ variant }),
                 fullWidth && "w-full",
-                className
+                className,
               )}
             >
               {leftIcon && (
@@ -97,7 +98,7 @@ export const AppInput = React.forwardRef<HTMLInputElement, AppInputProps>(
                   inputVariants({
                     hasLeftIcon,
                     hasRightIcon,
-                  })
+                  }),
                 )}
                 {...props}
               />
@@ -118,7 +119,7 @@ export const AppInput = React.forwardRef<HTMLInputElement, AppInputProps>(
               className={cn(
                 inputContainerVariants({ variant }),
                 fullWidth && "w-full",
-                className
+                className,
               )}
             >
               {leftIcon && (
@@ -133,7 +134,7 @@ export const AppInput = React.forwardRef<HTMLInputElement, AppInputProps>(
                   inputVariants({
                     hasLeftIcon,
                     hasRightIcon,
-                  })
+                  }),
                 )}
                 {...props}
               />
@@ -151,7 +152,7 @@ export const AppInput = React.forwardRef<HTMLInputElement, AppInputProps>(
         )}
       </div>
     );
-  }
+  },
 );
 
 AppInput.displayName = "AppInput";
