@@ -15,6 +15,33 @@ type Plan = {
 };
 const DEFAULT_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://vitex.duckdns.org/api/v1").replace(/\/$/, "");
 
+// Helper: deterministic avatar color + initials from a string (plan name or id)
+const AVATAR_PALE_COLORS = [
+  'bg-emerald-200 text-emerald-700',
+  'bg-indigo-200 text-indigo-700',
+  'bg-rose-200 text-rose-700',
+  'bg-amber-200 text-amber-700',
+  'bg-sky-200 text-sky-700',
+  'bg-violet-200 text-violet-700',
+  'bg-pink-200 text-pink-700',
+  'bg-lime-200 text-lime-700',
+];
+
+function pickAvatarClass(key: string | number | undefined) {
+  const s = String(key || '');
+  let sum = 0;
+  for (let i = 0; i < s.length; i++) sum += s.charCodeAt(i);
+  return AVATAR_PALE_COLORS[sum % AVATAR_PALE_COLORS.length];
+}
+
+function getInitials(name?: string) {
+  if (!name) return '';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '';
+  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+  return (parts[0].slice(0, 1) + parts[1].slice(0, 1)).toUpperCase();
+}
+
 type ApiPagination = {
   current_page?: number;
   from?: number;
@@ -35,6 +62,11 @@ export default function page() {
   const [plans, setPlans] = useState<Plan[]>(SAMPLE_PLANS);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState<ApiPagination>({});
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const showToast = (type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    window.setTimeout(() => setToast(null), 3500);
+  };
 
   const filtered = useMemo(() => {
     return plans.filter((p) => {
@@ -115,6 +147,48 @@ export default function page() {
     fetchPlans();
   }, [page]);
 
+  // navigate to plan detail
+  const handleEdit = (id: string) => {
+    try {
+      router.push(`/coach/exercises/lesson-plan/${id}`);
+    } catch (err) {
+      console.error('Failed to navigate to plan detail', err);
+    }
+  };
+
+  // delete with confirmation and API call
+  const handleDelete = async (id: string) => {
+    const ok = typeof window !== 'undefined' ? window.confirm('Are you sure you want to delete this plan? This action cannot be undone.') : true;
+    if (!ok) return;
+    try {
+      // read token from localStorage or env fallback
+      let token = '';
+      if (typeof window !== 'undefined') {
+        token = localStorage.getItem('token') || localStorage.getItem('auth_token') || localStorage.getItem('access_token') || localStorage.getItem('api_token') || '';
+      }
+      if (!token) token = (process.env.NEXT_PUBLIC_API_TOKEN as string) || '';
+
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${DEFAULT_BASE}/plans/${encodeURIComponent(String(id))}`, { method: 'DELETE', headers });
+      if (!res.ok) {
+        let body: any = null;
+        try { body = await res.json(); } catch (e) { /* ignore */ }
+        console.error('Failed to delete plan', body || res.statusText);
+        showToast('error', 'Failed to delete plan: ' + (body?.message || res.statusText || 'Unknown error'));
+        return;
+      }
+
+      // remove from local state
+      setPlans((cur) => cur.filter((p) => String(p.id) !== String(id)));
+      showToast('success', 'Plan deleted');
+    } catch (err) {
+      console.error('Error deleting plan', err);
+      alert('Error deleting plan');
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -172,14 +246,16 @@ export default function page() {
                   <td className="py-4">{p.duration}</td>
                   <td className="py-4">
                     <div className="flex items-center gap-2">
-                      <div className="h-6 w-6 rounded-full bg-slate-200" />
+                      <div className={`h-6 w-6 rounded-full flex items-center justify-center ${pickAvatarClass(p.name)}`}>
+                        <span className="text-xs font-semibold">{getInitials(p.name)}</span>
+                      </div>
                       <div className="text-xs text-slate-500">{p.athletes === 0 ? "None assigned" : `${p.athletes} players`}</div>
                     </div>
                   </td>
                   <td className="py-4">
                     <div className="flex items-center gap-3">
-                      <button className="text-slate-500 hover:text-slate-900">✏️</button>
-                      <button className="text-rose-500 hover:text-rose-700">🗑️</button>
+                      <button onClick={() => handleEdit(p.id)} className="text-slate-500 hover:text-slate-900">✏️</button>
+                      <button onClick={() => handleDelete(p.id)} className="text-rose-500 hover:text-rose-700">🗑️</button>
                     </div>
                   </td>
                 </tr>
@@ -187,6 +263,12 @@ export default function page() {
             </tbody>
           </table>
         </div>
+
+        {toast && (
+          <div className={`fixed right-6 bottom-6 z-50 max-w-sm text-sm ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'} text-white px-4 py-3 rounded shadow-lg whitespace-pre-wrap`}>
+            {toast.message}
+          </div>
+        )}
 
         <div className="flex items-center justify-between mt-4">
           <div className="text-sm text-slate-500">Showing {start + 1} to {Math.min(start + perPage, filtered.length)} of {filtered.length} plans</div>
