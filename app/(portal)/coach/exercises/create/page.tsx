@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { AppInput } from "@/shared/components/ui/input/AppInput";
 import { AppButton } from "@/shared/components/ui/button/AppButton";
+import { authFetch } from "@/shared/lib/api";
 
 export default function CreateExercisePage() {
   // form state
@@ -50,9 +51,8 @@ export default function CreateExercisePage() {
     setMessage(null);
     setErrors({});
     try {
-  const token = (process.env.NEXT_PUBLIC_API_TOKEN as string) || apiToken;
   const baseUrlRaw = (process.env.NEXT_PUBLIC_API_BASE_URL as string) || "";
-  const baseUrl = (baseUrlRaw || "http://vitex.duckdns.org/api/v1/").replace(/\/$/, "");
+  const baseUrl = (baseUrlRaw || "http://vitex.duckdns.org/api/v1").replace(/\/$/, "");
 
       const body = new URLSearchParams();
       body.append("title", title);
@@ -60,7 +60,13 @@ export default function CreateExercisePage() {
   if (videoPath) body.append("video_path", videoPath);
       if (videoUrl) body.append("video_url", videoUrl);
       if (thumbnail) body.append("thumbnail", thumbnail);
-      if (duration) body.append("duration", String(parseInt(duration || "0", 10)));
+      // If the user didn't provide a duration, send a reasonable random duration (10-30)
+      if (duration) {
+        body.append("duration", String(parseInt(duration || "0", 10)));
+      } else {
+        const rand = Math.floor(Math.random() * 21) + 10; // 10..30
+        body.append("duration", String(rand));
+      }
 
       // equipment as array: allow comma-separated input
       const items = equipmentInput.split(",").map((s) => s.trim()).filter(Boolean);
@@ -76,46 +82,39 @@ export default function CreateExercisePage() {
       body.append("add_to_daily_planner", addToDailyPlanner ? "1" : "0");
       body.append("status", status);
 
-      const res = await fetch("http://vitex.duckdns.org/api/v1/exercises", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: body.toString(),
-      });
-
-      let data = null;
+      // Use authFetch which attaches Authorization header when available
+      let data: any = null;
       try {
-        data = await res.json();
-      } catch (e) {
-        // ignore JSON parse error
+        data = await authFetch(`${baseUrl}/exercises`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: body.toString(),
+        });
+      } catch (err: any) {
+        // authFetch throws for non-2xx with err.payload available
+        const status = err?.status ?? 500;
+        const payload = err?.payload ?? null;
+        if (payload && payload.errors && typeof payload.errors === "object") {
+          setErrors(payload.errors as Record<string, string[]>);
+          const msgs = Object.values(payload.errors).flat().filter(Boolean) as string[];
+          const combined = msgs.join(" \u2022 ");
+          setMessage(payload.message || "Validation error");
+          showToast("error", combined || payload.message || `Save failed (${status})`);
+        } else {
+          setMessage(payload?.message || `Save failed (${status})`);
+          showToast("error", payload?.message || `Save failed (${status})`);
+        }
+        return;
       }
 
-      if (!res.ok) {
-        // Prefer structured validation errors if provided by the API
-        if (data && data.errors && typeof data.errors === "object") {
-          setErrors(data.errors as Record<string, string[]>);
-          const msgs = Object.values(data.errors).flat().filter(Boolean) as string[];
-          const combined = msgs.join(" \u2022 ");
-          setMessage(data.message || "Validation error");
-          showToast("error", combined || data.message || `Save failed (${res.status})`);
-        } else {
-          const errMsg = `Error ${res.status}: ${data?.message || JSON.stringify(data)}`;
-          setMessage(errMsg);
-          showToast("error", data?.message || `Save failed (${res.status})`);
-        }
-      } else {
-        // clear errors on success
-        setErrors({});
-        setMessage("Exercise saved successfully.");
-        showToast("success", "Exercise saved successfully.");
-        // navigate back to exercise list after successful save
-        try {
-          router.push("/coach/exercises/list");
-        } catch (e) {
-          // ignore navigation errors
-        }
+      // success
+      setErrors({});
+      setMessage("Exercise saved successfully.");
+      showToast("success", "Exercise saved successfully.");
+      try {
+        router.push("/coach/exercises/list");
+      } catch (e) {
+        /* ignore */
       }
     } catch (err: any) {
       setMessage(`Network error: ${err?.message || String(err)}`);

@@ -1,22 +1,323 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from 'next/navigation';
 import { AppInput } from "@/shared/components/ui/input/AppInput";
 import { AppButton } from "@/shared/components/ui/button/AppButton";
+import { authHeaders } from "@/shared/lib/api";
+
+const DEFAULT_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://vitex.duckdns.org/api/v1").replace(/\/$/, "");
 
 export default function CreateLessonPlanPage() {
+  const router = useRouter();
   const [step, setStep] = useState<number>(1);
+  const [asideFilter, setAsideFilter] = useState<string>("All");
+  const [categories, setCategories] = useState<any[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [drills, setDrills] = useState<any[]>([]);
+  const [drillsLoading, setDrillsLoading] = useState(false);
+  const [asideSearch, setAsideSearch] = useState<string>("");
+  const [planName, setPlanName] = useState<string>("");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [targetOutcomes, setTargetOutcomes] = useState<string[]>([]);
+  const [description, setDescription] = useState<string>("");
+  // small toast system (local to this page)
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const showToast = (type: "success" | "error", message: string) => {
+    setToast({ type, message });
+    window.setTimeout(() => setToast(null), 3000);
+  };
+  // creator info (from localStorage where available)
+  const [creatorName, setCreatorName] = useState<string>("Coach Marcus");
+  const [createdAtDisplay, setCreatedAtDisplay] = useState<string>(new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }));
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const apiUserRaw = localStorage.getItem('api_user');
+      let name: string | null = null;
+      if (apiUserRaw) {
+        try {
+          const apiUser = JSON.parse(apiUserRaw);
+          name = apiUser?.name || apiUser?.fullname || apiUser?.username || null;
+        } catch (e) {
+          // api_user is not JSON, maybe a plain username string
+          name = apiUserRaw;
+        }
+      }
+      if (!name) {
+        name = localStorage.getItem('user_name') || localStorage.getItem('name') || localStorage.getItem('fullname') || localStorage.getItem('user') || localStorage.getItem('username') || null;
+      }
+      if (name) setCreatorName(String(name));
+    } catch (err) {
+      // ignore and keep default
+    }
+    const now = new Date();
+    setCreatedAtDisplay(now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }));
+  }, []);
+
+  const getDateRange = (start?: string, end?: string) => {
+    if (!start || !end) return [] as string[];
+    const s = new Date(start);
+    const e = new Date(end);
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) return [] as string[];
+    if (e < s) return [] as string[];
+    const days: string[] = [];
+    const cur = new Date(s);
+    while (cur <= e) {
+      // format as D/M (no leading zeros) to match example: 12/1
+      days.push(`${cur.getDate()}/${cur.getMonth() + 1}`);
+      cur.setDate(cur.getDate() + 1);
+    }
+    return days;
+  };
+
+  // return array of ISO date strings (YYYY-MM-DD) for inclusive range
+  const getIsoDateRange = (start?: string, end?: string) => {
+    if (!start || !end) return [] as string[];
+    const s = new Date(start);
+    const e = new Date(end);
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) return [] as string[];
+    if (e < s) return [] as string[];
+    const days: string[] = [];
+    const cur = new Date(s);
+    while (cur <= e) {
+      days.push(cur.toISOString().slice(0, 10));
+      cur.setDate(cur.getDate() + 1);
+    }
+    return days;
+  };
+
+  const getDisplayFromIso = (iso?: string) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return `${d.getDate()}/${d.getMonth() + 1}`;
+  };
+
+  // sections state - holds copied drills per section
+  const [sections, setSections] = useState<{
+    [k: string]: any[];
+  }>({
+    "warm-up": [],
+    "main-workout": [],
+    "cool-down": [],
+  });
+
+  // per-date sections: map ISO date -> sections object
+  const [sectionsByDate, setSectionsByDate] = useState<Record<string, { [k: string]: any[] }>>({});
+  const [activeDate, setActiveDate] = useState<string | null>(null); // ISO YYYY-MM-DD
+
+  const [savedSteps, setSavedSteps] = useState<any[] | null>(null);
+
+  const findDrillById = (id: string | number) => drills.find((d) => String(d.id) === String(id));
+
+  const onDragStart = (e: React.DragEvent, id: string | number) => {
+    e.dataTransfer.setData("text/plain", String(id));
+    e.dataTransfer.effectAllowed = "copy";
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
+
+  const onDropToSection = (e: React.DragEvent, sectionKey: string) => {
+    e.preventDefault();
+    const id = e.dataTransfer.getData("text/plain");
+    if (!id) return;
+    const drill = findDrillById(id);
+    if (!drill) return;
+    // if an active date is selected, operate on that date's sections
+    if (activeDate) {
+      setSectionsByDate((cur) => {
+        const curForDate = cur[activeDate] || { "warm-up": [], "main-workout": [], "cool-down": [] };
+        const existing = curForDate[sectionKey] || [];
+        if (existing.find((it: any) => String(it.id) === String(drill.id))) return cur;
+        return { ...cur, [activeDate]: { ...curForDate, [sectionKey]: [...existing, drill] } };
+      });
+      return;
+    }
+
+    // fallback: global template sections
+    setSections((cur) => {
+      const existing = cur[sectionKey] || [];
+      if (existing.find((it: any) => String(it.id) === String(drill.id))) return cur;
+      return { ...cur, [sectionKey]: [...existing, drill] };
+    });
+  };
+
+  const removeFromSection = (sectionKey: string, id: string | number) => {
+    if (activeDate) {
+      setSectionsByDate((cur) => {
+        const curForDate = cur[activeDate] || { "warm-up": [], "main-workout": [], "cool-down": [] };
+        return { ...cur, [activeDate]: { ...curForDate, [sectionKey]: (curForDate[sectionKey] || []).filter((it: any) => String(it.id) !== String(id)) } };
+      });
+      return;
+    }
+
+    setSections((cur) => ({ ...cur, [sectionKey]: (cur[sectionKey] || []).filter((it: any) => String(it.id) !== String(id)) }));
+  };
+
+  const buildStepsPayload = () => {
+    // Build sections-per-date payload. For each date between startDate and endDate (inclusive)
+    // create an object with the date (ISO YYYY-MM-DD) and the three step arrays.
+    const dates = getIsoDateRange(startDate, endDate);
+
+    // Fallback: if no dates provided, use a single entry with today's date
+    const targetDates = dates.length > 0 ? dates : [new Date().toISOString().slice(0, 10)];
+
+    const sectionsPayload = targetDates.map((d) => {
+      const s = sectionsByDate[d] || sections; // use per-date if present, otherwise template
+      return {
+        date: d,
+        steps: [
+          { step: "warm-up", exercise_ids: (s["warm-up"] || []).map((it) => it.id) },
+          { step: "main-workout", exercise_ids: (s["main-workout"] || []).map((it) => it.id) },
+          { step: "cool-down", exercise_ids: (s["cool-down"] || []).map((it) => it.id) },
+        ],
+      };
+    });
+
+    setSavedSteps(sectionsPayload as any);
+    // for now, just log — we can POST this payload to the backend when an endpoint is defined
+    console.log("Lesson plan sections payload:", sectionsPayload);
+    return sectionsPayload;
+  };
+
+  const createPlan = async () => {
+    try {
+      const sectionsPayload = buildStepsPayload();
+
+      // read token from localStorage with a few common key fallbacks
+      const token =
+        (typeof window !== 'undefined' && (localStorage.getItem('token') || localStorage.getItem('auth_token') || localStorage.getItem('access_token') || localStorage.getItem('api_token'))) || null;
+
+      if (!token) {
+        console.error('No auth token found in localStorage');
+        alert('Not authenticated: no token found');
+        return;
+      }
+
+      const body = {
+        name: planName || 'Untitled Plan',
+        description: description || '',
+        start_date: startDate || null,
+        end_date: endDate || null,
+        target_outcome: (targetOutcomes || []).map((t) => String(t).toLowerCase()),
+        status: 'draft',
+        sections: sectionsPayload,
+        user_ids: [2],
+      };
+
+      const res = await fetch(`${DEFAULT_BASE}/plans`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        console.error('Failed to create plan', json);
+        alert('Failed to create plan: ' + (json?.message || res.statusText));
+        return;
+      }
+
+      console.log('Created plan', json);
+      showToast('success', 'create plan success');
+      // navigate to list
+      try {
+        router.push('/coach/exercises/lesson-plan/list');
+      } catch (e) {
+        // ignore
+      }
+    } catch (err) {
+      console.error('Error creating plan', err);
+      alert('Error creating plan');
+    }
+  };
+
+  const normalize = (s: any) => String(s || "").toLowerCase().replace(/\s+/g, "").replace(/-/g, "");
+
+  useEffect(() => {
+    // fetch categories and drills for the aside
+    const fetchCategories = async () => {
+      setCategoriesLoading(true);
+      try {
+        const res = await fetch(`${DEFAULT_BASE}/enums/CategoryEnum`, { headers: authHeaders() });
+        const json = await res.json();
+        const data = json?.data || json || [];
+        if (Array.isArray(data)) setCategories(data);
+      } catch (err) {
+        console.error('Failed to load categories', err);
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+
+    const fetchDrills = async () => {
+      setDrillsLoading(true);
+      try {
+        const res = await fetch(`${DEFAULT_BASE}/exercises?page=1&per_page=1000`, { headers: authHeaders() });
+        const json = await res.json();
+        const data = json?.data?.data || [];
+        const mapped = (data || []).map((d: any) => ({
+          id: d.id,
+          title: d.title,
+          badge: d.technical_difficulty || d.difficulty || 'Med Int',
+          time: d.duration ? `${d.duration}m` : '—',
+          category: d.category || d.category_key || null,
+        }));
+        setDrills(mapped);
+      } catch (err) {
+        console.error('Failed to load drills', err);
+      } finally {
+        setDrillsLoading(false);
+      }
+    };
+
+    fetchCategories();
+    fetchDrills();
+  }, []);
+
+  // ensure activeDate is set to first date in range when start/end change
+  useEffect(() => {
+    const isoDates = getIsoDateRange(startDate, endDate);
+    if (isoDates.length > 0) {
+      if (!activeDate || !isoDates.includes(activeDate)) {
+        const first = isoDates[0];
+        setActiveDate(first);
+        // initialize that date's sections if not present
+        setSectionsByDate((cur) => cur[first] ? cur : { ...cur, [first]: { "warm-up": [], "main-workout": [], "cool-down": [] } });
+      }
+    }
+  }, [startDate, endDate]);
+
+  const ensureDateInitialized = (iso: string) => {
+    if (!iso) return;
+    setSectionsByDate((cur) => (cur[iso] ? cur : { ...cur, [iso]: { "warm-up": Array.from(sections["warm-up"] || []), "main-workout": Array.from(sections["main-workout"] || []), "cool-down": Array.from(sections["cool-down"] || []) } }));
+  };
+
+  // derive which sections to render: per-active-date if set, otherwise the template `sections`
+  const templateSections = { "warm-up": sections["warm-up"] || [], "main-workout": sections["main-workout"] || [], "cool-down": sections["cool-down"] || [] };
+  const displayedSections = activeDate ? (sectionsByDate[activeDate] || templateSections) : templateSections;
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Create New Training Plan</h1>
-          <p className="text-sm text-slate-500 mt-1">Define the foundational framework for your athlete's upcoming performance phase.</p>
+      {step === 1 && (
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-semibold">Create New Training Plan</h1>
+            <p className="text-sm text-slate-500 mt-1">Define the foundational framework for your athlete's upcoming performance phase.</p>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="rounded-lg border bg-white p-6">
 
@@ -25,28 +326,50 @@ export default function CreateLessonPlanPage() {
           <div>
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2">Plan Name</label>
-              <AppInput placeholder="e.g., Pre-Season Endurance Phase 1" />
+              <AppInput placeholder="e.g., Pre-Season Endurance Phase 1" value={planName} onChange={(e: any) => setPlanName(e.target.value)} />
             </div>
 
             <div className="flex gap-4 mb-4 items-start">
-              <div className="flex-1 flex gap-4">
-                <AppInput placeholder="Start Date" />
-                <AppInput placeholder="End Date" />
+              <div className="min-w-[50%]">
+                <label className="block text-sm font-medium mb-2"> Date Range</label>
+                                <div className="flex-1 flex gap-4">
+
+                <AppInput type="date" value={startDate} onChange={(e: any) => setStartDate(e.target.value)} />
+                <AppInput type="date" value={endDate} onChange={(e: any) => setEndDate(e.target.value)} />
+                  </div>
               </div>
 
-              <div className="min-w-[220px]">
+              <div className="min-w-[50%]">
                 <label className="block text-sm font-medium mb-2">Target Outcome</label>
                 <div className="flex gap-2 flex-wrap">
-                  {['Conditioning','Technical','Rehab','Strength'].map((t) => (
-                    <button key={t} className="px-3 py-1 border rounded-full text-sm">{t}</button>
-                  ))}
+                  {['Conditioning','Technical','Rehab','Strength'].map((t) => {
+                    const selected = targetOutcomes.includes(t);
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        role="checkbox"
+                        aria-checked={selected}
+                        onClick={() => setTargetOutcomes((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]))}
+                        className={`px-3 py-1 rounded-full text-sm ${selected ? 'bg-[#f1f5ff] text-[#4541b3] border-[#5954E6]' : 'border bg-white'}`}
+                      >
+                        {t}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
 
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2">Description & Notes</label>
-              <textarea rows={6} placeholder="Outline specific goals, intensity levels, or athlete constraints for this phase..." className="w-full rounded border p-3 text-sm bg-slate-50" />
+              <textarea
+                rows={6}
+                placeholder="Outline specific goals, intensity levels, or athlete constraints for this phase..."
+                className="w-full rounded border p-3 text-sm bg-slate-50"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
             </div>
             
             
@@ -57,20 +380,40 @@ export default function CreateLessonPlanPage() {
         {step === 2 && (
           <div>
             {/* Header card */}
-            <div className="rounded-lg border bg-white p-6 mb-6">
+       
+
+            <div className="grid grid-cols-12 gap-6">
+              <div className="col-span-7">
+                     <div className="rounded-lg border bg-white p-6 mb-6">
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold">New Season Prep - Week 1</h2>
+                  <h2 className="text-xl font-semibold">{planName ? planName : 'Plan name'}</h2>
                   <div className="flex items-center gap-2 mt-2">
-                    <span className="text-xs px-2 py-1 bg-slate-100 rounded">U-18 Elite</span>
-                    <span className="text-xs px-2 py-1 bg-slate-100 rounded">Pre-Season</span>
-                    <span className="text-sm text-slate-400">Created by Coach Marcus • Oct 12, 2023</span>
+                    {/* date badges computed from step 1 start/end (click to select active date) */}
+                    {getIsoDateRange(startDate, endDate).map((iso) => {
+                      const disp = getDisplayFromIso(iso);
+                      const selected = iso === activeDate;
+                      return (
+                        <button
+                          key={`date-${iso}`}
+                          onClick={() => {
+                            setActiveDate(iso);
+                            ensureDateInitialized(iso);
+                          }}
+                          className={`text-xs px-2 py-1 rounded ${selected ? 'bg-[#EEF4FF] text-[#2B4BFF] font-semibold' : 'bg-slate-100'}`}
+                        >
+                          {disp}
+                        </button>
+                      );
+                    })}
+    
+                    <span className="text-sm text-slate-400">Created by {creatorName} • {createdAtDisplay}</span>
                   </div>
 
                   <div className="flex items-center gap-3 mt-4">
                     <span className="px-2 py-1 rounded-full bg-slate-50 text-xs">⚡ High Intensity</span>
                     <span className="px-2 py-1 rounded-full bg-slate-50 text-xs">Difficult</span>
-                    <button className="px-3 py-1 border rounded-full text-xs">+ Add Tag</button>
+                    <button className="px-3 py-1 border rounded-full text-xs">+ S</button>
                   </div>
                 </div>
 
@@ -82,80 +425,244 @@ export default function CreateLessonPlanPage() {
                 </div>
               </div>
             </div>
-
-            <div className="grid grid-cols-12 gap-6">
-              <div className="col-span-7">
                 {/* Sections */}
                 <div className="space-y-6">
-                  <section className="rounded border p-4 bg-white">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="text-sm font-medium">Warm-up</div>
-                        <div className="text-xs text-slate-400">10 MIN</div>
+                  {/* Save Steps removed — creation now happens when user clicks Start Training on Step 3 */}
+                  <section className="rounded-lg border-2 border-[#E8F0FF] bg-white p-4 relative">
+                    {/* top-right duration badge */}
+                    <div className="absolute right-4 top-4 text-xs font-semibold text-[#5954E6]">10 MIN</div>
+
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="inline-flex h-6 w-6 items-center justify-center rounded bg-[#EEF4FF] text-[#2B4BFF]">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#E7F0FF"/>
+                          <path d="M11 10h2v6h-2v-6zm0-4h2v2h-2V6z" fill="#2B4BFF"/>
+                        </svg>
                       </div>
+                      <div className="text-sm font-medium">Warm-up</div>
                     </div>
 
-                    <div className="space-y-3">
-                      <div className="rounded bg-slate-50 p-3 text-sm">Dynamic Stretching Routine<div className="text-xs text-slate-400 mt-1">1 set • 8 mins</div></div>
-                      <div className="rounded bg-slate-50 p-3 text-sm">Dynamic Stretching Routine<div className="text-xs text-slate-400 mt-1">1 set • 8 mins</div></div>
-                    </div>
+                    <div
+                      className="rounded-md border border-dashed border-[#DDEBFF] p-3 space-y-3 bg-[#FBFDFF] min-h-[120px]"
+                      onDragOver={onDragOver}
+                      onDrop={(e) => onDropToSection(e, "warm-up")}
+                    >
+                      {(displayedSections["warm-up"] || []).length === 0 ? (
+                        <div className="text-sm text-slate-400">Drag drills here from the Exercise Library</div>
+                      ) : (
+                        (displayedSections["warm-up"] || []).map((s: any) => {
+                          const badge = s.badge || '';
+                          const badgeLower = String(badge).toLowerCase();
+                          let badgeClasses = 'text-xs px-2 py-1 rounded-full inline-block';
+                          if (badgeLower.includes('low')) badgeClasses += ' bg-emerald-100 text-emerald-700';
+                          else if (badgeLower.includes('high') || badgeLower.includes('difficult')) badgeClasses += ' bg-rose-100 text-rose-700';
+                          else if (badgeLower.includes('med') || badgeLower.includes('moderate')) badgeClasses += ' bg-amber-100 text-amber-700';
+                          else if (badgeLower.includes('tac') || badgeLower.includes('easy')) badgeClasses += ' bg-indigo-100 text-indigo-700';
+                          else badgeClasses += ' bg-slate-100 text-slate-700';
 
+                          return (
+                            <div key={`warm-${s.id}`} className="rounded-md border border-slate-100 bg-slate-50 p-3 text-sm flex items-start justify-between">
+                              <div>
+                                <div className="font-medium">{s.title}</div>
+                                <div className="flex items-center gap-3 mt-1">
+                                  <div className={badgeClasses}>{badge}</div>
+                                  <div className="text-xs text-slate-400">{s.time || '—'}</div>
+                                </div>
+                              </div>
+                              <button onClick={() => removeFromSection("warm-up", s.id)} className="text-xs text-slate-500">Remove</button>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
                     <div className="mt-3">
-                      <button className="px-3 py-2 border rounded text-sm text-[#5954E6]">+ Add Exercise</button>
+                      <button className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-[#E6E9FF] text-sm text-[#5954E6] bg-white">
+                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#F0E9FF] text-[#6B52E6] text-xs">+</span>
+                        <span> Add Exercise</span>
+                      </button>
                     </div>
                   </section>
 
-                  <section className="rounded border p-4 bg-white">
+                  <section className="rounded-md border p-4 bg-white">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <div className="text-sm font-medium">Technical / Power</div>
-                        <div className="text-xs text-slate-400">25 MIN</div>
                       </div>
+                      <div className="text-xs font-semibold text-[#5954E6]">25 MIN</div>
                     </div>
 
-                    <div className="space-y-3">
-                      <div className="rounded bg-slate-50 p-3 text-sm">Barbell Clean & Jerk<div className="text-xs text-slate-400 mt-1">5 sets • 3 reps • 85% 1RM</div></div>
-                      <div className="rounded bg-slate-50 p-3 text-sm">Barbell Clean & Jerk<div className="text-xs text-slate-400 mt-1">5 sets • 3 reps • 85% 1RM</div></div>
+                    <div
+                      className="space-y-3 min-h-[120px]"
+                      onDragOver={onDragOver}
+                      onDrop={(e) => onDropToSection(e, "main-workout")}
+                    >
+                      {(displayedSections["main-workout"] || []).length === 0 ? (
+                        <div className="text-sm text-slate-400">Drag drills here from the Exercise Library</div>
+                      ) : (
+                        (displayedSections["main-workout"] || []).map((s: any) => {
+                          const badge = s.badge || '';
+                          const badgeLower = String(badge).toLowerCase();
+                          let badgeClasses = 'text-xs px-2 py-1 rounded-full inline-block';
+                          if (badgeLower.includes('low')) badgeClasses += ' bg-emerald-100 text-emerald-700';
+                          else if (badgeLower.includes('high') || badgeLower.includes('difficult')) badgeClasses += ' bg-rose-100 text-rose-700';
+                          else if (badgeLower.includes('med') || badgeLower.includes('moderate')) badgeClasses += ' bg-amber-100 text-amber-700';
+                          else if (badgeLower.includes('tac') || badgeLower.includes('easy')) badgeClasses += ' bg-indigo-100 text-indigo-700';
+                          else badgeClasses += ' bg-slate-100 text-slate-700';
+
+                          return (
+                            <div key={`main-${s.id}`} className="rounded-md border border-slate-100 bg-slate-50 p-3 text-sm flex items-start justify-between">
+                              <div>
+                                <div className="font-medium">{s.title}</div>
+                                <div className="flex items-center gap-3 mt-1">
+                                  <div className={badgeClasses}>{badge}</div>
+                                  <div className="text-xs text-slate-400">{s.time || '—'}</div>
+                                </div>
+                              </div>
+                              <button onClick={() => removeFromSection("main-workout", s.id)} className="text-xs text-slate-500">Remove</button>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
 
                     <div className="mt-3">
-                      <button className="px-3 py-2 border rounded text-sm text-[#5954E6]">+ Add Exercise</button>
+                      <button className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-[#E6E9FF] text-sm text-[#5954E6] bg-white">
+                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#F0E9FF] text-[#6B52E6] text-xs">+</span>
+                        <span> Add Exercise</span>
+                      </button>
                     </div>
                   </section>
 
-                  <div className="flex justify-center">
-                    <button className="px-4 py-2 rounded-full border text-sm text-[#5954E6]">+ Add Section</button>
-                  </div>
+                  <section className="rounded-md border p-4 bg-white">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="inline-flex h-6 w-6 items-center justify-center rounded bg-[#F6F0FF] text-[#6B52E6]">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2l2 4 4 .5-3 3 .8 4L12 12l-3.8 2.5.8-4-3-3 4-.5L12 2z" fill="#F3E8FF" />
+                          </svg>
+                        </div>
+                        <div className="text-sm font-medium">Cool down</div>
+                      </div>
+                      <div className="text-xs font-semibold text-[#5954E6]">25 MIN</div>
+                    </div>
+
+                    <div
+                      className="space-y-3 min-h-[120px]"
+                      onDragOver={onDragOver}
+                      onDrop={(e) => onDropToSection(e, "cool-down")}
+                    >
+                      {(displayedSections["cool-down"] || []).length === 0 ? (
+                        <div className="text-sm text-slate-400">Drag drills here from the Exercise Library</div>
+                      ) : (
+                        (displayedSections["cool-down"] || []).map((s: any) => {
+                          const badge = s.badge || '';
+                          const badgeLower = String(badge).toLowerCase();
+                          let badgeClasses = 'text-xs px-2 py-1 rounded-full inline-block';
+                          if (badgeLower.includes('low')) badgeClasses += ' bg-emerald-100 text-emerald-700';
+                          else if (badgeLower.includes('high') || badgeLower.includes('difficult')) badgeClasses += ' bg-rose-100 text-rose-700';
+                          else if (badgeLower.includes('med') || badgeLower.includes('moderate')) badgeClasses += ' bg-amber-100 text-amber-700';
+                          else if (badgeLower.includes('tac') || badgeLower.includes('easy')) badgeClasses += ' bg-indigo-100 text-indigo-700';
+                          else badgeClasses += ' bg-slate-100 text-slate-700';
+
+                          return (
+                            <div key={`cool-${s.id}`} className="rounded-md border border-slate-100 bg-slate-50 p-3 text-sm flex items-start justify-between">
+                              <div>
+                                <div className="font-medium">{s.title}</div>
+                                <div className="flex items-center gap-3 mt-1">
+                                  <div className={badgeClasses}>{badge}</div>
+                                  <div className="text-xs text-slate-400">{s.time || '—'}</div>
+                                </div>
+                              </div>
+                              <button onClick={() => removeFromSection("cool-down", s.id)} className="text-xs text-slate-500">Remove</button>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    <div className="mt-3">
+                      <button className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-[#E6E9FF] text-sm text-[#5954E6] bg-white">
+                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#F0E9FF] text-[#6B52E6] text-xs">+</span>
+                        <span> Add Exercise</span>
+                      </button>
+                    </div>
+                  </section>
+
+              
                 </div>
               </div>
 
               <div className="col-span-5">
+                <p>Exercise Library</p>
                 <aside className="rounded border p-4 bg-white">
-                  <AppInput placeholder="Search drills..." />
-                  <div className="flex gap-2 mt-3">
-                    {['All','Warm-up','Technical'].map((f) => (
-                      <button key={f} className={`px-3 py-1 text-sm rounded-full ${f === 'All' ? 'bg-[#f1f5ff]' : 'border'}`}>{f}</button>
-                    ))}
-                  </div>
+                    <AppInput placeholder="Search drills..." value={asideSearch} onChange={(e: any) => setAsideSearch(e.target.value)} />
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      <button onClick={() => setAsideFilter('All')} className={`px-3 py-1 text-sm rounded-full ${asideFilter === 'All' ? 'bg-[#f1f5ff]' : 'border'}`}>All</button>
+                      {categoriesLoading ? (
+                        <div className="px-3 py-1 text-sm text-slate-400">Loading...</div>
+                      ) : (
+                        (categories.length > 0 ? categories : []).map((c: any, idx: number) => {
+                          const key = typeof c === 'string' ? c : (c.key ?? c.value ?? `cat-${idx}`);
+                          const label = typeof c === 'string' ? c : (c.label ?? c.name ?? String(key));
+                          return (
+                            <button key={`aside-cat-${String(key)}`} onClick={() => setAsideFilter(String(key))} className={`px-3 py-1 text-sm rounded-full ${asideFilter === String(key) ? 'bg-[#f1f5ff]' : 'border'}`}>{label}</button>
+                          );
+                        })
+                      )}
+                    </div>
 
-                  <div className="mt-4 space-y-3">
-                    {[
-                      {title: '5v2 Rondo Transition', badge: 'Low Int', time: '15m'},
-                      {title: 'Box Entry & Finish', badge: 'High Int', time: '25m'},
-                      {title: 'Possession Game 8v8', badge: 'Med Int', time: '20m'},
-                      {title: '11v11 Shadow Play', badge: 'Tac Focus', time: '30m'},
-                    ].map((d) => (
-                      <div key={d.title} className="flex items-center justify-between p-3 rounded bg-slate-50">
-                        <div>
-                          <div className="text-sm font-medium">{d.title}</div>
-                          <div className="text-xs text-slate-400">{d.time}</div>
-                        </div>
-                        <div className="text-xs px-2 py-1 rounded" style={{background: '#eef2ff', color: '#5b21b6'}}>{d.badge}</div>
-                      </div>
-                    ))}
-                  </div>
+                    <div className="mt-4 space-y-3 max-h-[720px] overflow-auto pr-2">
+                      {drillsLoading ? (
+                        <div className="text-sm text-slate-400">Loading drills...</div>
+                      ) : (
+                      drills
+                        .filter((d) => {
+                          // filter by aside search (title) first
+                          if (asideSearch && !String(d.title || '').toLowerCase().includes(asideSearch.toLowerCase())) return false;
+                          if (asideFilter === 'All') return true;
+                          // try matching by category key or label
+                          const cat = d.category || '';
+                          return (
+                            normalize(cat) === normalize(asideFilter) ||
+                            normalize(cat) === normalize(categories.find((c: any) => (c.key ?? c.value) === asideFilter)?.label)
+                          );
+                        })
+                        .map((d) => {
+                          const badge = d.badge || '';
+                          const badgeLower = badge.toLowerCase();
+                          let badgeClasses = 'text-xs px-2 py-1 rounded-full inline-block';
+                          if (badgeLower.includes('low')) badgeClasses += ' bg-emerald-100 text-emerald-700';
+                          else if (badgeLower.includes('high') || badgeLower.includes('difficult')) badgeClasses += ' bg-rose-100 text-rose-700';
+                          else if (badgeLower.includes('med') || badgeLower.includes('moderate')) badgeClasses += ' bg-amber-100 text-amber-700';
+                          else if (badgeLower.includes('tac') || badgeLower.includes('easy')) badgeClasses += ' bg-indigo-100 text-indigo-700';
+                          else badgeClasses += ' bg-slate-100 text-slate-700';
 
-                  <div className="mt-4 text-center text-sm text-[#5954E6]">+ Create Custom Drill</div>
+                              return (
+                                <div
+                                  key={`drill-${d.id || d.title}`}
+                                  className="rounded-lg border bg-white p-4 cursor-grab"
+                                  draggable
+                                  onDragStart={(e) => onDragStart(e, d.id)}
+                                >
+                                  <div className="flex items-start justify-between">
+                                    <div>
+                                      <div className="text-sm font-medium text-slate-900">{d.title}</div>
+                                      <div className="flex items-center gap-3 mt-2">
+                                        <div className={badgeClasses}>{badge}</div>
+                                        <div className="text-xs text-slate-400">{d.time}</div>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                      <div className="text-slate-300">⋮</div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                        })
+                      )}
+                    </div>
+
+                    <div className="mt-4 text-center text-sm text-[#5954E6]">+ Create Custom Drill</div>
                 </aside>
               </div>
             </div>
@@ -256,7 +763,7 @@ export default function CreateLessonPlanPage() {
             ) : (
               <>
                 <AppButton variant="ghost">Generate &amp; Sync to Calendar</AppButton>
-                <AppButton>Start Training</AppButton>
+                <AppButton onClick={createPlan}>Start Training</AppButton>
               </>
             )}
           </div>
@@ -282,6 +789,12 @@ export default function CreateLessonPlanPage() {
           </div>
         </div>
       )}
+      {toast && (
+        <div className={`fixed right-6 bottom-6 z-50 max-w-sm text-sm ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'} text-white px-4 py-3 rounded shadow-lg`}>
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 }
+

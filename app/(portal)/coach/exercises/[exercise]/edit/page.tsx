@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import { AppInput } from "@/shared/components/ui/input/AppInput";
 import { AppButton } from "@/shared/components/ui/button/AppButton";
+import { authHeaders, mapPhysicalIntensity, mapTechnicalDifficulty } from "@/shared/lib/api";
 
 export default function EditExercisePage() {
   const params = useParams() as { exercise?: string };
@@ -41,8 +42,7 @@ export default function EditExercisePage() {
     window.setTimeout(() => setToast(null), 4000);
   };
 
-  // derive baseUrl and token similar to create page
-  const token = (process.env.NEXT_PUBLIC_API_TOKEN as string) || "";
+  // derive baseUrl
   const baseUrlRaw = (process.env.NEXT_PUBLIC_API_BASE_URL as string) || "";
   const baseUrl = (baseUrlRaw || "http://vitex.duckdns.org/api/v1").replace(/\/$/, "");
 
@@ -53,37 +53,57 @@ export default function EditExercisePage() {
     const load = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${baseUrl}/exercises/${encodeURIComponent(exerciseId)}`);
+    const headers = authHeaders();
+    const res = await fetch(`${baseUrl}/exercises/${encodeURIComponent(exerciseId)}`, { headers });
         if (!mounted) return;
         if (!res.ok) {
           showToast("error", `Failed to load exercise (${res.status})`);
           setLoading(false);
           return;
         }
-        const data = await res.json();
-        // map API fields to form
-        setTitle(data.title || "");
-        setSubtitle(data.subtitle || "");
-        setCategory(data.category || "");
-        setDescription(data.description || "");
-        setVideoPath(data.video_path || "");
-        setVideoUrl(data.video_url || "");
-        setThumbnail(data.thumbnail || "");
-        setDuration(data.duration ? String(data.duration) : "");
-        setEquipmentInput(Array.isArray(data.equipment) ? (data.equipment as string[]).join(",") : (data.equipment || ""));
-        setPositionsSelected(Array.isArray(data.positions) ? (data.positions as string[]) : (data.positions ? [String(data.positions)] : []));
-        if (data.physical_intensity) setPhysicalIntensity(String(data.physical_intensity));
-        if (data.technical_difficulty) setTechnicalDifficulty(String(data.technical_difficulty));
-        setIsVisibleToCoaches(Boolean(data.is_visible_to_coaches));
-        setAddToDailyPlanner(Boolean(data.add_to_daily_planner));
+        const json = await res.json();
+        // API returns { success, message, data: { ... } }
+        const payload = json?.data ?? json;
+        if (!payload) {
+          showToast("error", "No exercise data returned from API.");
+          setLoading(false);
+          return;
+        }
+
+  // map API fields to form (use payload which is the nested data object)
+  setTitle(payload.title || "");
+        setSubtitle(payload.subtitle || "");
+        setCategory(payload.category || "");
+        setDescription(payload.description || "");
+        setVideoPath(payload.video_path || "");
+        setVideoUrl(payload.video_url || "");
+        setThumbnail(payload.thumbnail || "");
+        setDuration(payload.duration ? String(payload.duration) : "");
+        // equipment may come back as an array — join into a comma-separated string for the input
+        setEquipmentInput(Array.isArray(payload.equipment) ? (payload.equipment as string[]).join(",") : (payload.equipment || ""));
+        // positions may be provided as `positions` (array) or `position_relevance` (single value)
+        if (Array.isArray(payload.positions)) {
+          setPositionsSelected(payload.positions as string[]);
+        } else if (payload.position_relevance) {
+          setPositionsSelected([String(payload.position_relevance)]);
+        } else if (payload.positions) {
+          setPositionsSelected([String(payload.positions)]);
+        } else {
+          setPositionsSelected([]);
+        }
+  // intensity / difficulty: normalize to UI keys
+  setPhysicalIntensity(mapPhysicalIntensity(payload.physical_intensity ?? null));
+  setTechnicalDifficulty(mapTechnicalDifficulty(payload.technical_difficulty ?? null));
+        setIsVisibleToCoaches(Boolean(payload.is_visible_to_coaches));
+        setAddToDailyPlanner(Boolean(payload.add_to_daily_planner));
 
         // attempt to extract youtube id like create page
         try {
-          const id = extractYouTubeId(data.video_path || data.video_url || "");
+          const id = extractYouTubeId(payload.video_path || payload.video_url || "");
           if (id) {
             setYoutubeId(id);
             // try to fetch thumbnail and duration (best-effort)
-            fetchYouTubeMeta(id, data.video_path || data.video_url || "");
+            fetchYouTubeMeta(id, payload.video_path || payload.video_url || "");
           }
         } catch (e) {
           /* ignore */
@@ -195,12 +215,10 @@ export default function EditExercisePage() {
       body.append("is_visible_to_coaches", isVisibleToCoaches ? "1" : "0");
       body.append("add_to_daily_planner", addToDailyPlanner ? "1" : "0");
 
+      const putHeaders = authHeaders("application/x-www-form-urlencoded");
       const res = await fetch(`${baseUrl}/exercises/${encodeURIComponent(exerciseId)}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: putHeaders,
         body: body.toString(),
       });
 
