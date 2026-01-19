@@ -62,6 +62,8 @@ export default function SignInPage() {
           description: res.message,
         });
         localStorage.setItem("token", res.data.token);
+        localStorage.setItem("api_user", JSON.stringify(res.data.user));
+        localStorage.setItem("api_token", res.data.token);
         router.push("/coach/dashboard");
       },
       onError: () => {
