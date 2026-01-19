@@ -1,11 +1,35 @@
-'use client'
+"use client";
 import Link from "next/link";
 import { AppButton } from "@/shared/components/ui/button/AppButton";
 import { useState } from "react";
 import { useAthleteQuery } from "@/shared/service/hooks/queries/useAthleteList.queries";
-import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, EyeIcon } from "lucide-react";
+import {
+  CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  DownloadIcon,
+  EyeIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import Image from "next/image";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { usePositionEnumQuery } from "@/shared/service/hooks/queries/usePositionEnum.query";
+import { AthleteStatus } from "@/shared/service/types/addAthlete.type";
 
 function PerformanceScore({ score }: { score: number | string }) {
   return (
@@ -20,8 +44,6 @@ function PerformanceScore({ score }: { score: number | string }) {
     </div>
   );
 }
-
-
 function FitnessBadge({ status }: { status: string }) {
   if (status === "available")
     return (
@@ -49,49 +71,71 @@ const getInitial = (name?: string) => {
   if (!name) return "?";
   return name.trim().charAt(0).toUpperCase();
 };
-
-
 export default function CoachAthletesPage() {
   const [page, setPage] = useState(1);
-  const { data } = useAthleteQuery(page)
-  const pagination = data?.data
-  const users = pagination?.data ?? []
-  const total = pagination?.total ?? 0
-  const from = pagination?.from ?? 0
-  const to = pagination?.to ?? 0
-  const lastPage = pagination?.last_page ?? 1
-  const links = pagination?.links ?? []
+  const [positionFilter, setPositionFilter] = useState<string>("all");
+  const [fitnessFilter, setFitnessFilter] = useState<string>("all");
+  const { data } = useAthleteQuery(page);
+  const { data: positions = [] } = usePositionEnumQuery();
+  const pagination = data?.data;
+  let users = pagination?.data ?? [];
+
+  // Apply filters
+  if (positionFilter !== "all") {
+    users = users.filter((u) => u.position_relevance === positionFilter);
+  }
+
+  if (fitnessFilter !== "all") {
+    users = users.filter((u) => u.fitness_status === fitnessFilter);
+  }
+  const total = pagination?.total ?? 0;
+  const from = pagination?.from ?? 0;
+  const to = pagination?.to ?? 0;
+  const lastPage = pagination?.last_page ?? 1;
+  const links = pagination?.links ?? [];
   const pageNumbers = Array.from(
     new Set(
       links
         .map((link) => link.page)
-        .filter((pageValue): pageValue is number => typeof pageValue === "number")
-    )
-  ).sort((a, b) => a - b)
+        .filter(
+          (pageValue): pageValue is number => typeof pageValue === "number",
+        ),
+    ),
+  ).sort((a, b) => a - b);
   const visiblePages = pageNumbers.filter(
     (pageNumber) =>
       pageNumber === 1 ||
       pageNumber === lastPage ||
-      Math.abs(pageNumber - page) <= 1
-  )
-  const showLeftEllipsis = pageNumbers.length > 0 && !visiblePages.includes(2)
-  const showRightEllipsis = pageNumbers.length > 0 && !visiblePages.includes(lastPage - 1)
+      Math.abs(pageNumber - page) <= 1,
+  );
+  const showLeftEllipsis = pageNumbers.length > 0 && !visiblePages.includes(2);
+  const showRightEllipsis =
+    pageNumbers.length > 0 && !visiblePages.includes(lastPage - 1);
 
-  const available = data?.data.data.filter((u) => u.fitness_status === "available")
-  const totalStatus = data?.data.data.filter((u) => u.fitness_status)
+  const available = data?.data.data.filter(
+    (u) => u.fitness_status === "available",
+  );
+  const totalStatus = data?.data.data.filter((u) => u.fitness_status);
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-800">Athlete Roster</h1>
-          <p className="mt-1 text-sm text-slate-500">Monitoring 24 active athletes in the First Team Squad</p>
+          <h1 className="text-2xl font-semibold text-slate-800">
+            Athlete Roster
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Monitoring 24 active athletes in the First Team Squad
+          </p>
         </div>
 
         <div className="flex items-center gap-3 font-bold">
-          <AppButton variant='outline' >
+          <AppButton variant="outline">
             <DownloadIcon size={16} />
-            Bulk Export</AppButton>
-          <AppButton className="border rounded px-3 py-2 bg-[#F5F3FF] text-sm text-[#5954E6]">+ import athlete list</AppButton>
+            Bulk Export
+          </AppButton>
+          <AppButton className="border rounded px-3 py-2 bg-[#F5F3FF] text-sm text-[#5954E6]">
+            + import athlete list
+          </AppButton>
           <Link href="/coach/athletes/create">
             <AppButton>+ Add New Athlete</AppButton>
           </Link>
@@ -102,14 +146,45 @@ export default function CoachAthletesPage() {
       <div className="rounded-lg border bg-white p-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <Button className="text-sm text-slate-500" variant='link'>Filters</Button>
+            <Button className="text-sm text-slate-500" variant="link">
+              Filters
+            </Button>
           </div>
           <div className="flex items-center gap-2">
-            <button className="px-3 py-2 bg-white border rounded text-sm">Squad: All Teams</button>
-            <button className="px-3 py-2 bg-white border rounded text-sm">Position: All</button>
-            <button className="px-3 py-2 bg-white border rounded text-sm">Fitness: Any</button>
+            <Select value={positionFilter} onValueChange={setPositionFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Position: All" />
+              </SelectTrigger>
+              <SelectContent
+                className="h-[260px] overflow-y-auto"
+                position="popper"
+                side="bottom"
+                align="start"
+              >
+                <SelectItem value="all">All Positions</SelectItem>
+                {positions.map((pos) => (
+                  <SelectItem key={pos.key} value={pos.key}>
+                    {pos.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={fitnessFilter} onValueChange={setFitnessFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Fitness: Any" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any Status</SelectItem>
+                <SelectItem value={AthleteStatus.AVAILABLE}>
+                  Available
+                </SelectItem>
+                <SelectItem value={AthleteStatus.INJURED}>Injured</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <div className="ml-auto text-sm text-slate-500">Sorted by Performance Score</div>
+          <div className="ml-auto text-sm text-slate-500">
+            Sorted by Performance Score
+          </div>
         </div>
       </div>
 
@@ -127,16 +202,23 @@ export default function CoachAthletesPage() {
           </TableHeader>
           <TableBody>
             {users.slice(0, 5).map((u) => (
-              <TableRow
-                key={u.id}
-                className="hover:bg-slate-50 transition"
-              >
+              <TableRow key={u.id} className="hover:bg-slate-50 transition">
                 {/* Athlete */}
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <div className="size-9 rounded-full bg-slate-100 flex items-center justify-center text-sm font-semibold text-slate-500">
-                      {getInitial(u.name)}
-                    </div>
+                    {u.avatar ? (
+                      <Image
+                        src={u.avatar}
+                        alt={u.name}
+                        width={36}
+                        height={36}
+                        className="size-9 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="size-9 rounded-full bg-slate-100 flex items-center justify-center text-sm font-semibold text-slate-500">
+                        {getInitial(u.name)}
+                      </div>
+                    )}
                     <div>
                       <div className="font-medium text-slate-800">{u.name}</div>
                       <div className="text-xs text-slate-400">ID: #{u.id}</div>
@@ -172,10 +254,11 @@ export default function CoachAthletesPage() {
           </TableBody>
           <TableFooter>
             <TableRow>
-              <TableCell colSpan={5} >
+              <TableCell colSpan={5}>
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-slate-500">
-                    Showing <strong>{from}</strong> to <strong>{to}</strong> of <strong>{total}</strong> athletes
+                    Showing <strong>{from}</strong> to <strong>{to}</strong> of{" "}
+                    <strong>{total}</strong> athletes
                   </div>
                   <div className="flex items-center gap-1 text-sm">
                     <Button
@@ -189,9 +272,11 @@ export default function CoachAthletesPage() {
 
                     {visiblePages.map((pageNumber, index) => (
                       <div key={pageNumber} className="flex items-center gap-1">
-                        {pageNumber !== 1 && index === 1 && showLeftEllipsis && (
-                          <span className="px-2 text-slate-400">…</span>
-                        )}
+                        {pageNumber !== 1 &&
+                          index === 1 &&
+                          showLeftEllipsis && (
+                            <span className="px-2 text-slate-400">…</span>
+                          )}
                         <Button
                           className="inline-flex h-7 min-w-7 items-center justify-center rounded border px-2 text-xs"
                           variant={pageNumber === page ? "default" : "outline"}
@@ -199,14 +284,18 @@ export default function CoachAthletesPage() {
                         >
                           {pageNumber}
                         </Button>
-                        {pageNumber !== lastPage && showRightEllipsis && index === visiblePages.length - 2 && (
-                          <span className="px-2 text-slate-400">…</span>
-                        )}
+                        {pageNumber !== lastPage &&
+                          showRightEllipsis &&
+                          index === visiblePages.length - 2 && (
+                            <span className="px-2 text-slate-400">…</span>
+                          )}
                       </div>
                     ))}
                     <Button
                       className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-200 text-slate-500 disabled:opacity-40"
-                      onClick={() => setPage((prev) => Math.min(lastPage, prev + 1))}
+                      onClick={() =>
+                        setPage((prev) => Math.min(lastPage, prev + 1))
+                      }
                       disabled={page >= lastPage}
                       variant="outline"
                     >
@@ -228,12 +317,16 @@ export default function CoachAthletesPage() {
           </div>
           <div>
             <div className="text-sm text-slate-500">Available</div>
-            <div className="text-xl font-semibold">{available?.length ?? 0}/{totalStatus?.length ?? 0}</div>
+            <div className="text-xl font-semibold">
+              {available?.length ?? 0}/{totalStatus?.length ?? 0}
+            </div>
           </div>
         </div>
 
         <div className="rounded-lg bg-white p-4 border flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-700">!</div>
+          <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-700">
+            !
+          </div>
           <div>
             <div className="text-sm text-slate-500">At Risk</div>
             <div className="text-xl font-semibold">4</div>
@@ -241,7 +334,9 @@ export default function CoachAthletesPage() {
         </div>
 
         <div className="rounded-lg bg-white p-4 border flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-700">↗</div>
+          <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-700">
+            ↗
+          </div>
           <div>
             <div className="text-sm text-slate-500">Avg. Performance</div>
             <div className="text-xl font-semibold">78.6</div>

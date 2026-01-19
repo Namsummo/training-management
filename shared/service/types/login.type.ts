@@ -16,11 +16,13 @@ export interface User {
 
   height: number | null;
   weight: number | null;
+  jersey_number: number | null;
 
   email_verified_at: string | null;
   avatar: string;
   created_at: string;
   updated_at: string;
+  role: number;
 }
 export interface LoginData {
   token: string;
