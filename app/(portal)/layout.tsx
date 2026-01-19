@@ -81,7 +81,7 @@ export default function PortalLayout({
       }
     >
       {/* Top bar */}
-      <header className="flex h-16 items-center gap-2 border-b px-4">
+      <header className="flex h-16 items-center gap-2 border-b px-4" style={{ paddingLeft: 250 }}>
         <SidebarTrigger className="-ml-1" />
         <div className="flex-1">
           <p className={`text-xs font-semibold uppercase ${areaColor}`}>
@@ -92,7 +92,7 @@ export default function PortalLayout({
 
       {/* Content */}
 
-      <main className="flex-1 space-y-6 p-6 bg-muted/40">{children}</main>
+      <main className="flex-1 space-y-6 p-6 bg-muted/40" style={{ paddingLeft: 250 }}>{children}</main>
     </AppSidebar>
   );
 }
