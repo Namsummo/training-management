@@ -61,7 +61,6 @@ export default function SignInPage() {
         toast.success("Login success", {
           description: res.message,
         });
-        localStorage.setItem("token", res.data.token);
         router.push("/coach/dashboard");
       },
       onError: () => {
@@ -71,7 +70,6 @@ export default function SignInPage() {
       },
     });
   }
-
 
   return (
     <div className="flex min-h-screen">

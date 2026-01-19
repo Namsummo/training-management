@@ -4,8 +4,7 @@ export interface LoginRequest {
   email: string;
   password: string;
 }
-
-export interface LoginUser {
+export interface User {
   id: number;
   name: string;
   email: string;
@@ -19,11 +18,12 @@ export interface LoginUser {
   weight: number | null;
 
   email_verified_at: string | null;
+  avatar: string;
   created_at: string;
   updated_at: string;
 }
 export interface LoginData {
   token: string;
-  user: LoginUser;
+  user: User;
 }
 export type LoginResponse = ApiResponse<LoginData>;
