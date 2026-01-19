@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppButton } from "@/shared/components/ui/button/AppButton";
+import { ArrowLeft } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 export default function AddAthletePage() {
   const router = useRouter();
@@ -18,7 +20,6 @@ export default function AddAthletePage() {
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    // For now just navigate back — persist logic can be added later
     router.push("/coach/athletes");
   }
 
@@ -32,7 +33,11 @@ export default function AddAthletePage() {
           </div>
           <div>
             <Link href="/coach/athletes">
-              <button className="text-sm px-3 py-2 border rounded bg-slate-50">← Back to Roster</button>
+              <AppButton className="text-sm px-3 py-2 border rounded bg-slate-50"
+                variant="outline">
+                <ArrowLeft size={16} />
+                Back to Roster
+              </AppButton>
             </Link>
           </div>
         </div>
@@ -62,7 +67,7 @@ export default function AddAthletePage() {
 
               <div>
                 <label className="text-xs text-slate-500">Date of Birth</label>
-                <input value={dob} onChange={(e) => setDob(e.target.value)} type="date" className="mt-1 w-full border rounded px-3 py-2" />
+                <Input value={dob} onChange={(e) => setDob(e.target.value)} type="date" className="mt-1 w-full border rounded px-3 py-2" />
               </div>
 
               <div className="flex gap-2">

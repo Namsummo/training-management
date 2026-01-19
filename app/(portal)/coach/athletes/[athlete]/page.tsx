@@ -1,7 +1,4 @@
-import React from "react";
-import Link from "next/link";
 import { AppButton } from "@/shared/components/ui/button/AppButton";
-
 type Props = { params: { athlete: string } };
 
 export default function AthleteDetailPage({ params }: Props) {
@@ -76,8 +73,8 @@ export default function AthleteDetailPage({ params }: Props) {
                   <div className="text-xs text-slate-400">Last 5 Sessions: RPE (Load) vs. Pain Levels</div>
                 </div>
                 <div className="flex items-center gap-3 text-xs">
-                  <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-[#5954E6]"/> RPE Score</div>
-                  <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-rose-400"/> Pain Score</div>
+                  <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-[#5954E6]" /> RPE Score</div>
+                  <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-rose-400" /> Pain Score</div>
                 </div>
               </div>
 
@@ -137,7 +134,7 @@ export default function AthleteDetailPage({ params }: Props) {
           <div className="col-span-4 space-y-6">
             <div className="rounded-lg border bg-white p-4 ring-2 ring-[#EEF2FF]">
               <div className="text-sm font-semibold">AI Insight</div>
-              <div className="text-xs text-slate-500 mt-3">“Fatigue levels are peaking and Marcus reported increased tightness in the left hamstring. Recommend reducing high-speed running by 15% for tomorrow's recovery session.”</div>
+              <div className="text-xs text-slate-500 mt-3">“Fatigue levels are peaking and Marcus reported increased tightness in the left hamstring. Recommend reducing high-speed running by 15% for tomorrow is recovery session.”</div>
               <div className="mt-4">
                 <AppButton>View Recommendation</AppButton>
               </div>

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Traninig Management",
+  title: "Tranining Management",
   description: "Training Management System",
 };
 
