@@ -1,18 +1,20 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { AppButton } from "@/shared/components/ui/button/AppButton";
 
 type Props = {
   params: { plan: string };
 };
 
-export default function PlanDetailPage({ params }: Props) {
+export default function PlanDetailPage() {
   // Static mock content for the detail view
   const planName = "Matchday -2 (MD-2)";
   const created = "Tuesday, Oct 24 • Microcycle 12 • Focus: Transition & Finishing";
   const router = useRouter();
+  const params = useParams();
+  const planId = params?.plan;
 
   return (
     <div className="p-6">

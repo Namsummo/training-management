@@ -98,6 +98,72 @@ export default function CreateLessonPlanPage() {
     return `${d.getDate()}/${d.getMonth() + 1}`;
   };
 
+  // small avatar helpers for selected athletes
+  const AVATAR_PALE_COLORS = [
+    'bg-emerald-200 text-emerald-700',
+    'bg-indigo-200 text-indigo-700',
+    'bg-rose-200 text-rose-700',
+    'bg-amber-200 text-amber-700',
+    'bg-sky-200 text-sky-700',
+    'bg-violet-200 text-violet-700',
+    'bg-pink-200 text-pink-700',
+    'bg-lime-200 text-lime-700',
+  ];
+  const pickAvatarClass = (key: string | number | undefined) => {
+    const s = String(key || '');
+    let sum = 0;
+    for (let i = 0; i < s.length; i++) sum += s.charCodeAt(i);
+    return AVATAR_PALE_COLORS[sum % AVATAR_PALE_COLORS.length];
+  };
+  const getInitials = (name?: string) => {
+    if (!name) return '';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '';
+    if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+    return (parts[0].slice(0, 1) + parts[1].slice(0, 1)).toUpperCase();
+  };
+
+  // Users modal state (Selected athletes)
+  const [users, setUsers] = useState<any[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
+
+  const fetchUsers = async () => {
+    setUsersLoading(true);
+    try {
+      const res = await fetch(`${DEFAULT_BASE}/users?per_page=1000`, { headers: authHeaders() });
+      const json = await res.json();
+      // backend may return { data: { data: [...] } } or { data: [...] }
+      const data = json?.data?.data || json?.data || json || [];
+      setUsers(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load users', err);
+      showToast('error', 'Failed to load users: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const openUserModal = () => {
+    // pre-select previously chosen users
+    setSelectedUserIds((selectedUsers || []).map((u: any) => Number(u.id)));
+    setShowUserModal(true);
+    // load users if not already loaded
+    if (!users || users.length === 0) fetchUsers();
+  };
+
+  const toggleSelectUser = (id: number) => {
+    setSelectedUserIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  };
+
+  const saveUserSelection = () => {
+    const chosen = users.filter((u: any) => selectedUserIds.includes(Number(u.id)));
+    setSelectedUsers(chosen);
+    setShowUserModal(false);
+  };
+
   // sections state - holds copied drills per section
   const [sections, setSections] = useState<{
     [k: string]: any[];
@@ -198,7 +264,7 @@ export default function CreateLessonPlanPage() {
 
       if (!token) {
         console.error('No auth token found in localStorage');
-        alert('Not authenticated: no token found');
+        showToast('error', 'Not authenticated: no token found');
         return;
       }
 
@@ -210,7 +276,7 @@ export default function CreateLessonPlanPage() {
         target_outcome: (targetOutcomes || []).map((t) => String(t).toLowerCase()),
         status: 'draft',
         sections: sectionsPayload,
-        user_ids: [2],
+        user_ids: selectedUserIds || [],
       };
 
       const res = await fetch(`${DEFAULT_BASE}/plans`, {
@@ -225,7 +291,27 @@ export default function CreateLessonPlanPage() {
       const json = await res.json();
       if (!res.ok) {
         console.error('Failed to create plan', json);
-        alert('Failed to create plan: ' + (json?.message || res.statusText));
+        // Build a detailed validation message when available
+        const title = json?.message || 'Failed to create plan';
+        const details: string[] = [];
+        // If the response contains a nested `errors` object, prefer that
+        const errorsSource = json?.errors && typeof json.errors === 'object' ? json.errors : json;
+        Object.keys(errorsSource || {}).forEach((k) => {
+          if (k === 'message' || k === 'success' || k === 'data') return;
+          const v = (errorsSource as any)[k];
+          if (Array.isArray(v)) details.push(`${k}: ${v.join('; ')}`);
+          else if (typeof v === 'string') details.push(`${k}: ${v}`);
+          else if (typeof v === 'object') {
+            try {
+              // try to stringify small objects
+              details.push(`${k}: ${JSON.stringify(v)}`);
+            } catch (e) {
+              // ignore
+            }
+          }
+        });
+        const msg = details.length > 0 ? `${title} — ${details.join('\n')}` : `${title}`;
+        showToast('error', msg);
         return;
       }
 
@@ -239,7 +325,7 @@ export default function CreateLessonPlanPage() {
       }
     } catch (err) {
       console.error('Error creating plan', err);
-      alert('Error creating plan');
+      showToast('error', 'Error creating plan: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -316,6 +402,7 @@ export default function CreateLessonPlanPage() {
             <h1 className="text-2xl font-semibold">Create New Training Plan</h1>
             <p className="text-sm text-slate-500 mt-1">Define the foundational framework for your athlete's upcoming performance phase.</p>
           </div>
+
         </div>
       )}
 
@@ -688,14 +775,20 @@ export default function CreateLessonPlanPage() {
               <div className="rounded border bg-white p-4">
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-medium">1. Selected Athletes & Teams</div>
-                  <div className="text-sm text-slate-500">Edit Selection</div>
+                  <div className="text-sm text-slate-500"><button onClick={openUserModal} className="underline">Edit Selection</button></div>
                 </div>
-                <div className="mt-3 flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-slate-200" />
-                  <div className="h-8 w-8 rounded-full bg-slate-200" />
-                  <div className="h-8 w-8 rounded-full bg-slate-200" />
-                  <div className="text-xs rounded-full bg-[#eef2ff] text-[#5b21b6] px-2 py-1">+12</div>
-                  <div className="text-sm">Men's Varsity Football Squad (15 Total)</div>
+                  <div className="mt-3 flex items-center gap-3">
+                  {selectedUsers && selectedUsers.slice(0, 3).map((u: any) => (
+                    <div key={`sel-${u.id}`} className={`h-8 w-8 rounded-full flex items-center justify-center ${pickAvatarClass(u.name)}`}>
+                      <span className="text-xs font-semibold">{getInitials(u.name)}</span>
+                    </div>
+                  ))}
+                  {/* placeholders if fewer than 3 */}
+                  {Array.from({ length: Math.max(0, 3 - (selectedUsers || []).length) }).map((_, i) => (
+                    <div key={`ph-${i}`} className="h-8 w-8 rounded-full bg-slate-200" />
+                  ))}
+                  <div className="text-xs rounded-full bg-[#eef2ff] text-[#5b21b6] px-2 py-1">+{Math.max(0, (selectedUsers?.length || 0) - 3)}</div>
+                  <div className="text-sm">Men's Varsity Football Squad ({(selectedUsers?.length || 0)} Total)</div>
                 </div>
               </div>
 
@@ -790,8 +883,59 @@ export default function CreateLessonPlanPage() {
         </div>
       )}
       {toast && (
-        <div className={`fixed right-6 bottom-6 z-50 max-w-sm text-sm ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'} text-white px-4 py-3 rounded shadow-lg`}>
+        <div className={`fixed right-6 bottom-6 z-50 max-w-sm text-sm ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'} text-white px-4 py-3 rounded shadow-lg whitespace-pre-wrap`}>
           {toast.message}
+        </div>
+      )}
+
+      {showUserModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowUserModal(false)} />
+          <div className="relative z-10 w-[720px] max-w-full bg-white rounded shadow-lg p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Select Athletes</h3>
+              <div>
+                <button onClick={() => setShowUserModal(false)} className="text-sm text-slate-500">Close</button>
+              </div>
+            </div>
+
+            <div className="mb-3">
+              <AppInput placeholder="Filter users..." onChange={(e: any) => {
+                const q = String(e.target.value || '').toLowerCase();
+                if (!q) return fetchUsers();
+                // local filter over already-fetched users
+                setUsers((cur) => (cur || []).filter((u: any) => String(u.name || u.fullname || u.username || '').toLowerCase().includes(q)));
+              }} />
+            </div>
+
+            <div className="max-h-[360px] overflow-auto border rounded">
+              {usersLoading ? (
+                <div className="p-4 text-sm text-slate-500">Loading users...</div>
+              ) : (
+                <ul>
+                  {(users || []).map((u: any) => (
+                    <li key={u.id} className="flex items-center gap-3 p-3 border-b last:border-b-0">
+                      <div className={`h-8 w-8 rounded-full flex items-center justify-center ${pickAvatarClass(u.name || u.fullname || u.username)}`}>
+                        <span className="text-xs font-semibold">{getInitials(u.name || u.fullname || u.username)}</span>
+                      </div>
+                      <div className="flex-1 text-sm">
+                        <div className="font-medium">{u.name || u.fullname || u.username || `User ${u.id}`}</div>
+                        <div className="text-xs text-slate-400">{u.email || ''}</div>
+                      </div>
+                      <div>
+                        <input type="checkbox" checked={selectedUserIds.includes(Number(u.id))} onChange={() => toggleSelectUser(Number(u.id))} />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button onClick={() => setShowUserModal(false)} className="px-3 py-2 border rounded text-sm">Cancel</button>
+              <button onClick={() => { saveUserSelection(); }} className="px-3 py-2 bg-[#5954E6] text-white rounded text-sm">Save Selection</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
