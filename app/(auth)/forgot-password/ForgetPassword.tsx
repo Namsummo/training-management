@@ -93,7 +93,7 @@ export default function ForgetPassword() {
                 fullWidth
                 className="mt-2 border-none text-primary font-medium"
                 variant={"outline"}
-                onClick={() => router.push("/signin")}
+                onClick={() => router.push("/login")}
               >
                 <ArrowLeft size={20} className="text-black" />
                 Back

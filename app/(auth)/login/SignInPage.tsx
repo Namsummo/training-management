@@ -17,69 +17,70 @@ import {
   EyeIcon,
   MailboxIcon,
   RectangleEllipsisIcon,
-  User,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useSignUp } from "@/shared/service/hooks/mutations/signUp.mutation";
-import { SignUpRequest } from "@/shared/service/types/signUp.type";
-import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useLogin } from "@/shared/service/hooks/mutations/login.mutation";
+import { toast } from "sonner";
+import { LoginRequest } from "@/shared/service/types/login.type";
 
-const signUpSchema = z
-  .object({
-    name: z.string().nonempty("Name is required"),
-    email: z.string().email("Invalid email"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
-    password_confirmation: z.string().min(8, "Confirm password is required"),
-  })
-  .refine((data) => data.password === data.password_confirmation, {
-    message: "Passwords do not match",
-    path: ["password_confirmation"],
-  });
+const signInSchema = z.object({
+  email: z.string().email("Invalid email"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
 
-type SignUpFormValues = z.infer<typeof signUpSchema>;
+type SignInFormValues = z.infer<typeof signInSchema>;
 
-export default function SignUpPage() {
+export default function SignInPage() {
   const [showPass, setShowpass] = useState<boolean>(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const { mutate, isPending } = useSignUp()
-  const router = useRouter()
+  const { mutate, isPending } = useLogin();
 
-  const form = useForm<SignUpFormValues>({
-    resolver: zodResolver(signUpSchema),
+  const router = useRouter();
+
+  const form = useForm<SignInFormValues>({
+    resolver: zodResolver(signInSchema),
     mode: "onChange",
     defaultValues: {
-      name: "",
       email: "",
       password: "",
-      password_confirmation: ''
     },
   });
 
-  function onSubmit(values: SignUpFormValues) {
-    const payload: SignUpRequest = {
-      name: values.name,
+  function onSubmit(values: SignInFormValues) {
+    const payload: LoginRequest = {
       email: values.email,
       password: values.password,
-      password_confirmation: values.password_confirmation,
-    }
+    };
+
     mutate(payload, {
       onSuccess: (res) => {
-        toast.success("Success", {
+        toast.success("Login success", {
           description: res.message,
         });
 
-        form.reset()
-        router.push("/coach/dashboard");
+        // Determine redirect based on user role
+        // Try multiple sources: res.data.role[0], res.data.user.roles[0].name, or check in roles array
+        const userRole =
+          res.data.role?.[0] || res.data.user?.roles?.[0]?.name || null;
 
+        let redirectPath = "/athlete/dashboard"; // Default to athlete
+
+        if (userRole === "Coach") {
+          redirectPath = "/coach/dashboard";
+        }
+
+        router.push(redirectPath);
       },
       onError: () => {
-        toast.error("Error", { description: "Invalid information" })
+        toast.error("Login failed", {
+          description: "Invalid email or password",
+        });
       },
-    })
+    });
   }
 
   return (
@@ -96,29 +97,11 @@ export default function SignUpPage() {
             className="mb-6"
           />
 
-          <h1 className="text-2xl font-bold">Create your account</h1>
+          <h1 className="text-2xl font-bold">Hi, Welcome</h1>
           <p className="text-gray-400 mb-8">Please login to your account</p>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <AppInput
-                        {...field}
-                        label="Name"
-                        placeholder="First and Last name"
-                        fullWidth
-                        leftIcon={<User size={16} className="text-black" />}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
               <FormField
                 control={form.control}
                 name="email"
@@ -178,42 +161,20 @@ export default function SignUpPage() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="password_confirmation"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <AppInput
-                        {...field}
-                        type={showConfirmPassword ? "text" : "password"}
-                        label="Confirm password"
-                        placeholder="Re-enter your password"
-                        fullWidth
-                        leftIcon={
-                          <RectangleEllipsisIcon size={16} className="text-black" />
-                        }
-                        rightIcon={
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="border-none hover:bg-white"
-                            onClick={() => setShowConfirmPassword((prev) => !prev)}
-                          >
-                            {showConfirmPassword ? (
-                              <EyeIcon size={16} className="text-black" />
-                            ) : (
-                              <EyeClosedIcon size={16} className="text-black" />
-                            )}
-                          </Button>
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
+              {/* Remember + Forgot */}
+              <div className="flex justify-between items-center text-sm">
+                <label className="flex items-center gap-2 cursor-pointer text-gray-500">
+                  <Checkbox className="text-gray-500 border border-gray-400" />
+                  Remember me
+                </label>
+                <Link
+                  href="/forgot-password"
+                  className="underline  text-gray-500"
+                >
+                  Forgot password?
+                </Link>
+              </div>
 
               <AppButton
                 type="submit"
@@ -222,7 +183,7 @@ export default function SignUpPage() {
                 disabled={!form.formState.isValid}
                 variant={form.formState.isValid ? "default" : "light"}
               >
-                {isPending ? "Signing up ..." : "Signup"}
+                {isPending ? "Loging..." : "Login"}
               </AppButton>
 
               <div className="flex items-center gap-4">
@@ -242,7 +203,7 @@ export default function SignUpPage() {
                     width={20}
                     height={20}
                   />
-                  Sign up with Google
+                  Sign in with Google
                 </AppButton>
 
                 <AppButton variant="light" fullWidth>
@@ -252,7 +213,7 @@ export default function SignUpPage() {
                     width={20}
                     height={20}
                   />
-                  Sign up with Apple
+                  Sign in with Apple
                 </AppButton>
               </div>
 
@@ -260,10 +221,10 @@ export default function SignUpPage() {
               <div className="flex justify-center gap-2 text-sm text-gray-500">
                 <span>Don’t have an account?</span>
                 <Link
-                  href="/signin"
+                  href="/register"
                   className="text-primary underline font-medium"
                 >
-                  Login
+                  Register
                 </Link>
               </div>
             </form>

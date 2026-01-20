@@ -194,7 +194,7 @@ export function AppSidebar({ title, items, children }: AppSidebarProps) {
                       console.log("e", e);
                     }
                     // redirect to signin and replace history so back doesn't return to protected pages
-                    router.replace("/signin");
+                    router.replace("/login");
                   }}
                 >
                   <LogOut className="size-5" />
