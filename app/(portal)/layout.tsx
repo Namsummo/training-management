@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import {
   AppSidebar,
   coachMenuItems,
@@ -10,29 +9,25 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import Image from "next/image";
 import { ChevronsLeft, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import RequireAuth from "@/shared/components/auth/RequireAuth";
+import RoleBasedProtection from "@/shared/components/auth/RoleBasedProtection";
+import { getApiUser } from "@/shared/lib/auth";
+import { useMemo } from "react";
 
 export default function PortalLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  const isCoach = pathname?.startsWith("/coach");
-  const isAthlete = pathname?.startsWith("/athlete");
+  // Get user role once and memoize
+  const user = getApiUser();
+  const userRole = useMemo(() => user?.role?.[0] || null, [user]);
 
-  const items = isCoach ? coachMenuItems : isAthlete ? athleteMenuItems : [];
+  // Determine menu items based on actual user role, not pathname
+  const items = userRole === "Coach" ? coachMenuItems : athleteMenuItems;
 
-  const areaLabel = isCoach
-    ? "Coach area"
-    : isAthlete
-    ? "Athlete area"
-    : "Portal area";
-
-  const areaColor = isCoach
-    ? "text-slate-500"
-    : isAthlete
-    ? "text-indigo-500"
-    : "text-slate-500";
+  const areaLabel = userRole === "Coach" ? "Coach area" : "Athlete area";
+  const areaColor = userRole === "Coach" ? "text-slate-500" : "text-indigo-500";
 
   return (
     <AppSidebar
@@ -81,7 +76,10 @@ export default function PortalLayout({
       }
     >
       {/* Top bar */}
-      <header className="flex h-16 items-center gap-2 border-b px-4" style={{ paddingLeft: 250 }}>
+      <header
+        className="flex h-16 items-center gap-2 border-b px-4"
+        style={{ paddingLeft: 250 }}
+      >
         <SidebarTrigger className="-ml-1" />
         <div className="flex-1">
           <p className={`text-xs font-semibold uppercase ${areaColor}`}>
@@ -92,7 +90,14 @@ export default function PortalLayout({
 
       {/* Content */}
 
-      <main className="flex-1 space-y-6 p-6 bg-muted/40" style={{ paddingLeft: 250 }}>{children}</main>
+      <main
+        className="flex-1 space-y-6 p-6 bg-muted/40"
+        style={{ paddingLeft: 270, marginLeft: 20 }}
+      >
+        <RequireAuth>
+          <RoleBasedProtection>{children}</RoleBasedProtection>
+        </RequireAuth>
+      </main>
     </AppSidebar>
   );
 }
