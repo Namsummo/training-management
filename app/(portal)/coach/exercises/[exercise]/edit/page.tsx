@@ -14,8 +14,8 @@ export default function EditExercisePage() {
 
   // form state (same fields as create)
   const [title, setTitle] = useState<string>("");
-  const [subtitle, setSubtitle] = useState<string>("");
   const [category, setCategory] = useState<string>("");
+  const [tagsInput, setTagsInput] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [physicalIntensity, setPhysicalIntensity] = useState<string | null>(null);
   const [technicalDifficulty, setTechnicalDifficulty] = useState<string | null>(null);
@@ -72,8 +72,9 @@ export default function EditExercisePage() {
 
   // map API fields to form (use payload which is the nested data object)
   setTitle(payload.title || "");
-        setSubtitle(payload.subtitle || "");
-        setCategory(payload.category || "");
+  setCategory(payload.category || "");
+  // tags may come back as an array — join into a comma-separated string for the input
+  setTagsInput(Array.isArray(payload.tags) ? (payload.tags as string[]).join(",") : (payload.tags || ""));
         setDescription(payload.description || "");
         setVideoPath(payload.video_path || "");
         setVideoUrl(payload.video_url || "");
@@ -207,6 +208,9 @@ export default function EditExercisePage() {
       const items = equipmentInput.split(",").map((s) => s.trim()).filter(Boolean);
       items.forEach((it) => body.append("equipment[]", it));
 
+      const tags = tagsInput.split(",").map((s) => s.trim()).filter(Boolean);
+      tags.forEach((t) => body.append("tags[]", t));
+
       positionsSelected.forEach((p) => body.append("positions[]", p));
 
       if (physicalIntensity) body.append("physical_intensity", physicalIntensity.toLowerCase());
@@ -277,8 +281,6 @@ export default function EditExercisePage() {
                 <div className="mt-1 text-xs text-rose-600">{errors.title.join(" ")}</div>
               )}
 
-              <AppInput label="Exercise Subtitle" placeholder="e.g. High Intensity Dribbling Drill" value={subtitle} onChange={(e: any) => setSubtitle(e.target.value)} />
-
               <div>
                 <label className="text-sm font-medium">Category</label>
                 <select value={category} onChange={(e) => setCategory(e.target.value)} className="mt-2 w-full rounded-md border border-slate-200 bg-background px-3 py-2 text-sm outline-none">
@@ -299,6 +301,10 @@ export default function EditExercisePage() {
                 <label className="text-sm font-medium text-black">Description & Instructions</label>
                 <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="mt-2 w-full min-h-[88px] rounded-md border border-slate-200 bg-background px-3 py-2 text-sm outline-none placeholder:text-slate-400" placeholder="Describe how to perform this exercise step by step..." />
               </div>
+
+              <div>
+                              <AppInput label="Tags" placeholder="Comma-separated tags, e.g. dribbling,footwork" value={tagsInput} onChange={(e: any) => setTagsInput(e.target.value)} />
+              </div>
             </div>
           </section>
 
@@ -306,7 +312,6 @@ export default function EditExercisePage() {
             <h2 className="text-sm font-semibold">Exercise Media</h2>
             <div className="mt-4 flex flex-col gap-3">
               <AppInput label="Video URL (Optional)" placeholder="https://youtube.com/watch?v=..." value={videoPath} onChange={(e: any) => setVideoPath(e.target.value)} />
-              <AppInput label="Thumbnail URL (Optional)" placeholder="Thumbnail url" value={thumbnail} onChange={(e: any) => setThumbnail(e.target.value)} />
               <AppInput label="Duration (seconds)" placeholder="Duration in seconds" value={duration} onChange={(e: any) => setDuration(e.target.value)} />
             </div>
           </section>

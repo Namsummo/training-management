@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { AppInput } from "@/shared/components/ui/input/AppInput";
 import { AppButton } from "@/shared/components/ui/button/AppButton";
-import { authFetch } from "@/shared/lib/api";
+import { authFetch, authHeaders } from "@/shared/lib/api";
 
 export default function CreateExercisePage() {
   // form state
   const [title, setTitle] = useState<string>("");
   const [subtitle, setSubtitle] = useState<string>("");
+  const [tagsInput, setTagsInput] = useState<string>("");
   const [category, setCategory] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [physicalIntensity, setPhysicalIntensity] = useState<string | null>(null);
@@ -29,6 +30,8 @@ export default function CreateExercisePage() {
   const [isVisibleToCoaches, setIsVisibleToCoaches] = useState<boolean>(true);
   const [addToDailyPlanner, setAddToDailyPlanner] = useState<boolean>(false);
   const [positionsSelected, setPositionsSelected] = useState<string[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
 
   // API / UI state
   const [apiToken, setApiToken] = useState<string>("");
@@ -71,6 +74,10 @@ export default function CreateExercisePage() {
       // equipment as array: allow comma-separated input
       const items = equipmentInput.split(",").map((s) => s.trim()).filter(Boolean);
       items.forEach((it) => body.append("equipment[]", it));
+
+      // tags as array: allow comma-separated input
+      const tags = tagsInput.split(",").map((s) => s.trim()).filter(Boolean);
+      tags.forEach((t) => body.append("tags[]", t));
 
   // include selected positions
   positionsSelected.forEach((p) => body.append("positions[]", p));
@@ -281,6 +288,24 @@ export default function CreateExercisePage() {
 
   // if there is a direct video element, attach listeners
   useEffect(() => {
+    // fetch Category enum for the Category select
+    const DEFAULT_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://vitex.duckdns.org/api/v1").replace(/\/$/, "");
+    const fetchCategories = async () => {
+      setCategoriesLoading(true);
+      try {
+        const res = await fetch(`${DEFAULT_BASE}/enums/CategoryEnum`, { headers: authHeaders() });
+        const json = await res.json();
+        const data = json?.data || json || [];
+        if (Array.isArray(data)) setCategories(data);
+      } catch (err) {
+        console.error("Failed to load categories", err);
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+
+    fetchCategories();
+
     const vid = videoRef.current;
     if (!vid) return;
     const onTime = () => setCurrentTime(vid.currentTime || 0);
@@ -323,7 +348,7 @@ export default function CreateExercisePage() {
                   ))}
                 </div>
               )}
-              <AppInput label="Exercise Subtitle" placeholder="e.g. High Intensity Dribbling Drill" value={subtitle} onChange={(e: any) => setSubtitle(e.target.value)} />
+              {/* Subtitle removed per UI update */}
 
               <div>
                 <label className="text-sm font-medium">Category</label>
@@ -333,15 +358,30 @@ export default function CreateExercisePage() {
                   className="mt-2 w-full rounded-md border border-slate-200 bg-background px-3 py-2 text-sm outline-none"
                 >
                   <option value="">Select category</option>
-                  <option value="training">training</option>
-                  <option value="diet">diet</option>
-                  <option value="other">other</option>
-                  <option value="warm-up">warm-up</option>
-                  <option value="technical">technical</option>
-                  <option value="tactical">tactical</option>
-                  <option value="match-simulation">match-simulation</option>
-                  <option value="recovery">recovery</option>
-                  <option value="injury-prevention">injury-prevention</option>
+                  {categoriesLoading && <option value="" disabled>Loading...</option>}
+                  {!categoriesLoading && categories.length > 0
+                    ? categories.map((c: any) => {
+                        // support string entries or objects with common keys
+                        if (typeof c === 'string') {
+                          return <option value={c} key={c}>{c}</option>;
+                        }
+                        const val = c.key ?? c.value ?? c.id ?? JSON.stringify(c);
+                        const label = c.label ?? c.name ?? c.title ?? c.key ?? c.value ?? String(c);
+                        return <option value={val} key={val}>{label}</option>;
+                      })
+                    : (
+                      <>
+                        <option value="training">training</option>
+                        <option value="diet">diet</option>
+                        <option value="other">other</option>
+                        <option value="warm-up">warm-up</option>
+                        <option value="technical">technical</option>
+                        <option value="tactical">tactical</option>
+                        <option value="match-simulation">match-simulation</option>
+                        <option value="recovery">recovery</option>
+                        <option value="injury-prevention">injury-prevention</option>
+                      </>
+                    )}
                 </select>
               </div>
 
@@ -384,6 +424,16 @@ export default function CreateExercisePage() {
               <div>
                 <label className="text-sm font-medium text-black">Description & Instructions</label>
                 <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="mt-2 w-full min-h-[88px] rounded-md border border-slate-200 bg-background px-3 py-2 text-sm outline-none placeholder:text-slate-400" placeholder="Describe how to perform this exercise step by step..." />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-black">Tags</label>
+                <input
+                  value={tagsInput}
+                  onChange={(e) => setTagsInput(e.target.value)}
+                  placeholder="training, cool down, ..."
+                  className="mt-2 w-full rounded-md border border-slate-200 bg-background px-3 py-2 text-sm outline-none"
+                />
               </div>
             </div>
           </section>
