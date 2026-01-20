@@ -6,6 +6,7 @@ import Image from "next/image";
 import { AppInput } from "@/shared/components/ui/input/AppInput";
 import { AppButton } from "@/shared/components/ui/button/AppButton";
 import { authHeaders, mapPhysicalIntensity, mapTechnicalDifficulty } from "@/shared/lib/api";
+import { usePositionEnumQuery } from "@/shared/service/hooks/queries/usePositionEnum.query";
 
 export default function EditExercisePage() {
   const params = useParams() as { exercise?: string };
@@ -14,8 +15,10 @@ export default function EditExercisePage() {
 
   // form state (same fields as create)
   const [title, setTitle] = useState<string>("");
-  const [subtitle, setSubtitle] = useState<string>("");
   const [category, setCategory] = useState<string>("");
+  const [categories, setCategories] = useState<any[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState<boolean>(false);
+  const [tagsInput, setTagsInput] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [physicalIntensity, setPhysicalIntensity] = useState<string | null>(null);
   const [technicalDifficulty, setTechnicalDifficulty] = useState<string | null>(null);
@@ -72,8 +75,9 @@ export default function EditExercisePage() {
 
   // map API fields to form (use payload which is the nested data object)
   setTitle(payload.title || "");
-        setSubtitle(payload.subtitle || "");
-        setCategory(payload.category || "");
+  setCategory(payload.category || "");
+  // tags may come back as an array — join into a comma-separated string for the input
+  setTagsInput(Array.isArray(payload.tags) ? (payload.tags as string[]).join(",") : (payload.tags || ""));
         setDescription(payload.description || "");
         setVideoPath(payload.video_path || "");
         setVideoUrl(payload.video_url || "");
@@ -120,6 +124,28 @@ export default function EditExercisePage() {
       mounted = false;
     };
   }, [exerciseId]);
+
+  // fetch Category enum for the Category select
+  useEffect(() => {
+    const fetchCategories = async () => {
+      setCategoriesLoading(true);
+      try {
+        const res = await fetch(`${baseUrl}/enums/CategoryEnum`, { headers: authHeaders() });
+        const json = await res.json();
+        const data = json?.data || json || [];
+        if (Array.isArray(data)) setCategories(data);
+      } catch (err) {
+        // leave categories empty; UI will fall back to defaults
+        console.error('Failed to load categories', err);
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  const { data: positions = [], isLoading: positionsLoading } = usePositionEnumQuery();
 
   // YouTube id extraction (same as create)
   const extractYouTubeId = (url: string): string | null => {
@@ -199,6 +225,7 @@ export default function EditExercisePage() {
       const body = new URLSearchParams();
       body.append("title", title);
       body.append("description", description || "");
+      if (category) body.append("category", category);
       if (videoPath) body.append("video_path", videoPath);
       if (videoUrl) body.append("video_url", videoUrl);
       if (thumbnail) body.append("thumbnail", thumbnail);
@@ -207,7 +234,13 @@ export default function EditExercisePage() {
       const items = equipmentInput.split(",").map((s) => s.trim()).filter(Boolean);
       items.forEach((it) => body.append("equipment[]", it));
 
-      positionsSelected.forEach((p) => body.append("positions[]", p));
+      const tags = tagsInput.split(",").map((s) => s.trim()).filter(Boolean);
+      tags.forEach((t) => body.append("tags[]", t));
+
+      // send single position_relevance string (API expects a single value)
+      if (positionsSelected.length > 0) {
+        body.append("position_relevance", String(positionsSelected[0]));
+      }
 
       if (physicalIntensity) body.append("physical_intensity", physicalIntensity.toLowerCase());
       if (technicalDifficulty) body.append("technical_difficulty", technicalDifficulty.toLowerCase());
@@ -277,27 +310,58 @@ export default function EditExercisePage() {
                 <div className="mt-1 text-xs text-rose-600">{errors.title.join(" ")}</div>
               )}
 
-              <AppInput label="Exercise Subtitle" placeholder="e.g. High Intensity Dribbling Drill" value={subtitle} onChange={(e: any) => setSubtitle(e.target.value)} />
-
               <div>
                 <label className="text-sm font-medium">Category</label>
                 <select value={category} onChange={(e) => setCategory(e.target.value)} className="mt-2 w-full rounded-md border border-slate-200 bg-background px-3 py-2 text-sm outline-none">
                   <option value="">Select category</option>
-                  <option value="training">training</option>
-                  <option value="diet">diet</option>
-                  <option value="other">other</option>
-                  <option value="warm-up">warm-up</option>
-                  <option value="technical">technical</option>
-                  <option value="tactical">tactical</option>
-                  <option value="match-simulation">match-simulation</option>
-                  <option value="recovery">recovery</option>
-                  <option value="injury-prevention">injury-prevention</option>
+                  {categoriesLoading && <option value="" disabled>Loading...</option>}
+                  {!categoriesLoading && (categories.length > 0 ? categories : ["training","diet","other","warm-up","technical","tactical","match-simulation","recovery","injury-prevention"]).map((c: any) => {
+                    if (typeof c === 'string') return <option key={c} value={c}>{c}</option>;
+                    const val = c.key ?? c.value ?? c.id ?? JSON.stringify(c);
+                    const label = c.label ?? c.name ?? c.title ?? c.key ?? c.value ?? String(c);
+                    return <option key={val} value={val}>{label}</option>;
+                  })}
                 </select>
               </div>
+
+                <div>
+                    <label className="text-sm font-medium text-black">Position Relevance</label>
+                    <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="Position relevance">
+                        {(positionsLoading ? [
+                            { key: "forward", label: "Forward" },
+                            { key: "defense", label: "Defense" },
+                            { key: "goalkeeper", label: "Goalkeeper" },
+                            { key: "midfielder", label: "Midfielder" },
+                        ] : positions).map((pos: any) => {
+                            const key = typeof pos === 'string' ? pos : pos.key ?? pos.value ?? pos.id ?? String(pos);
+                            const label = typeof pos === 'string' ? pos : pos.label ?? pos.name ?? String(key);
+                            const selected = positionsSelected.includes(String(key));
+                            return (
+                                <button
+                                    key={String(key)}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={selected}
+                                    onClick={() => setPositionsSelected([String(key)])}
+                                    className={`rounded-full px-3 py-1 text-xs transition-colors focus:outline-none ${selected ? "bg-[#5954E6] text-white border-transparent" : "border border-slate-200 bg-white text-slate-700"}`}
+                                >
+                                    {label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {errors.position && (
+                        <div className="mt-1 text-xs text-rose-600">{errors.position.join(" ")}</div>
+                    )}
+                </div>
 
               <div>
                 <label className="text-sm font-medium text-black">Description & Instructions</label>
                 <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="mt-2 w-full min-h-[88px] rounded-md border border-slate-200 bg-background px-3 py-2 text-sm outline-none placeholder:text-slate-400" placeholder="Describe how to perform this exercise step by step..." />
+              </div>
+
+              <div>
+                              <AppInput label="Tags" placeholder="Comma-separated tags, e.g. dribbling,footwork" value={tagsInput} onChange={(e: any) => setTagsInput(e.target.value)} />
               </div>
             </div>
           </section>
@@ -306,7 +370,6 @@ export default function EditExercisePage() {
             <h2 className="text-sm font-semibold">Exercise Media</h2>
             <div className="mt-4 flex flex-col gap-3">
               <AppInput label="Video URL (Optional)" placeholder="https://youtube.com/watch?v=..." value={videoPath} onChange={(e: any) => setVideoPath(e.target.value)} />
-              <AppInput label="Thumbnail URL (Optional)" placeholder="Thumbnail url" value={thumbnail} onChange={(e: any) => setThumbnail(e.target.value)} />
               <AppInput label="Duration (seconds)" placeholder="Duration in seconds" value={duration} onChange={(e: any) => setDuration(e.target.value)} />
             </div>
           </section>

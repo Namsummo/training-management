@@ -178,6 +178,8 @@ export default function CreateLessonPlanPage() {
   const [activeDate, setActiveDate] = useState<string | null>(null); // ISO YYYY-MM-DD
 
   const [savedSteps, setSavedSteps] = useState<any[] | null>(null);
+  // per-date start time mapping (HH:MM)
+  const [startTimes, setStartTimes] = useState<Record<string, string>>({});
 
   const findDrillById = (id: string | number) => drills.find((d) => String(d.id) === String(id));
 
@@ -240,6 +242,7 @@ export default function CreateLessonPlanPage() {
       const s = sectionsByDate[d] || sections; // use per-date if present, otherwise template
       return {
         date: d,
+        start_time: startTimes[d] || null,
         steps: [
           { step: "warm-up", exercise_ids: (s["warm-up"] || []).map((it) => it.id) },
           { step: "main-workout", exercise_ids: (s["main-workout"] || []).map((it) => it.id) },
@@ -381,6 +384,14 @@ export default function CreateLessonPlanPage() {
         setActiveDate(first);
         // initialize that date's sections if not present
         setSectionsByDate((cur) => cur[first] ? cur : { ...cur, [first]: { "warm-up": [], "main-workout": [], "cool-down": [] } });
+        // ensure a default start time exists for these dates
+        setStartTimes((cur) => {
+          const out = { ...cur };
+          isoDates.forEach((d) => {
+            if (!out[d]) out[d] = '10:30';
+          });
+          return out;
+        });
       }
     }
   }, [startDate, endDate]);
@@ -388,6 +399,7 @@ export default function CreateLessonPlanPage() {
   const ensureDateInitialized = (iso: string) => {
     if (!iso) return;
     setSectionsByDate((cur) => (cur[iso] ? cur : { ...cur, [iso]: { "warm-up": Array.from(sections["warm-up"] || []), "main-workout": Array.from(sections["main-workout"] || []), "cool-down": Array.from(sections["cool-down"] || []) } }));
+    setStartTimes((cur) => (cur[iso] ? cur : { ...cur, [iso]: '10:30' }));
   };
 
   // derive which sections to render: per-active-date if set, otherwise the template `sections`
@@ -500,7 +512,20 @@ export default function CreateLessonPlanPage() {
                   <div className="flex items-center gap-3 mt-4">
                     <span className="px-2 py-1 rounded-full bg-slate-50 text-xs">⚡ High Intensity</span>
                     <span className="px-2 py-1 rounded-full bg-slate-50 text-xs">Difficult</span>
-                    <button className="px-3 py-1 border rounded-full text-xs">+ S</button>
+                    <div>
+                      <input
+                        type="time"
+                        disabled={!activeDate}
+                        value={activeDate ? (startTimes[activeDate] || '10:30') : '10:30'}
+                        onChange={(e) => {
+                          if (!activeDate) return;
+                          const v = e.target.value;
+                          setStartTimes((cur) => ({ ...cur, [activeDate]: v }));
+                        }}
+                        className="px-3 py-1 border rounded-full text-xs"
+                        aria-label="Start time for selected date"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -521,7 +546,7 @@ export default function CreateLessonPlanPage() {
 
                     <div className="flex items-center gap-2 mb-3">
                       <div className="inline-flex h-6 w-6 items-center justify-center rounded bg-[#EEF4FF] text-[#2B4BFF]">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <svg suppressHydrationWarning width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#E7F0FF"/>
                           <path d="M11 10h2v6h-2v-6zm0-4h2v2h-2V6z" fill="#2B4BFF"/>
                         </svg>
@@ -624,7 +649,7 @@ export default function CreateLessonPlanPage() {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <div className="inline-flex h-6 w-6 items-center justify-center rounded bg-[#F6F0FF] text-[#6B52E6]">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <svg suppressHydrationWarning width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M12 2l2 4 4 .5-3 3 .8 4L12 12l-3.8 2.5.8-4-3-3 4-.5L12 2z" fill="#F3E8FF" />
                           </svg>
                         </div>
@@ -868,7 +893,7 @@ export default function CreateLessonPlanPage() {
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0">
               <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg suppressHydrationWarning width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#bfdbfe"/>
                   <path d="M11 10h2v6h-2v-6zm0-4h2v2h-2V6z" fill="#1e3a8a"/>
                 </svg>

@@ -9,12 +9,20 @@ export const useLogin = () =>
     mutationFn: loginService,
     onSuccess: (data) => {
       // Store token and user data in localStorage
-      if (typeof window !== 'undefined' && data.data) {
-        localStorage.setItem('api_token', data.data.token);
-        localStorage.setItem('api_user', JSON.stringify(data.data.user));
+      if (typeof window !== "undefined" && data.data) {
+        localStorage.setItem("api_token", data.data.token);
+
+        // Ensure role is included in user data
+        const userData = {
+          ...data.data.user,
+          role:
+            data.data.role || data.data.user?.roles?.map((r) => r.name) || [],
+        };
+
+        localStorage.setItem("api_user", JSON.stringify(userData));
       }
     },
     onError: (error) => {
-      console.error('Login failed:', error);
+      console.error("Login failed:", error);
     },
   });

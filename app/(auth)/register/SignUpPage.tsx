@@ -17,56 +17,66 @@ import {
   EyeIcon,
   MailboxIcon,
   RectangleEllipsisIcon,
+  User,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
-import { useLogin } from "@/shared/service/hooks/mutations/login.mutation";
+import { useSignUp } from "@/shared/service/hooks/mutations/signUp.mutation";
+import { SignUpRequest } from "@/shared/service/types/signUp.type";
 import { toast } from "sonner";
-import { LoginRequest } from "@/shared/service/types/login.type";
+import { useRouter } from "next/navigation";
 
-const signInSchema = z.object({
-  email: z.string().email("Invalid email"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-});
+const signUpSchema = z
+  .object({
+    name: z.string().nonempty("Name is required"),
+    email: z.string().email("Invalid email"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    password_confirmation: z.string().min(8, "Confirm password is required"),
+  })
+  .refine((data) => data.password === data.password_confirmation, {
+    message: "Passwords do not match",
+    path: ["password_confirmation"],
+  });
 
-type SignInFormValues = z.infer<typeof signInSchema>;
+type SignUpFormValues = z.infer<typeof signUpSchema>;
 
-export default function SignInPage() {
+export default function SignUpPage() {
   const [showPass, setShowpass] = useState<boolean>(false);
-  const { mutate, isPending } = useLogin();
-
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { mutate, isPending } = useSignUp();
   const router = useRouter();
 
-  const form = useForm<SignInFormValues>({
-    resolver: zodResolver(signInSchema),
+  const form = useForm<SignUpFormValues>({
+    resolver: zodResolver(signUpSchema),
     mode: "onChange",
     defaultValues: {
+      name: "",
       email: "",
       password: "",
+      password_confirmation: "",
     },
   });
 
-  function onSubmit(values: SignInFormValues) {
-    const payload: LoginRequest = {
+  function onSubmit(values: SignUpFormValues) {
+    const payload: SignUpRequest = {
+      name: values.name,
       email: values.email,
       password: values.password,
+      password_confirmation: values.password_confirmation,
     };
-
     mutate(payload, {
       onSuccess: (res) => {
-        toast.success("Login success", {
+        toast.success("Success", {
           description: res.message,
         });
-        router.push("/coach/dashboard");
+
+        form.reset();
+        router.push("/athlete/dashboard");
       },
       onError: () => {
-        toast.error("Login failed", {
-          description: "Invalid email or password",
-        });
+        toast.error("Error", { description: "Invalid information" });
       },
     });
   }
@@ -85,11 +95,29 @@ export default function SignInPage() {
             className="mb-6"
           />
 
-          <h1 className="text-2xl font-bold">Hi, Welcome</h1>
+          <h1 className="text-2xl font-bold">Create your account</h1>
           <p className="text-gray-400 mb-8">Please login to your account</p>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <AppInput
+                        {...field}
+                        label="Name"
+                        placeholder="First and Last name"
+                        fullWidth
+                        leftIcon={<User size={16} className="text-black" />}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="email"
@@ -149,20 +177,46 @@ export default function SignInPage() {
                   </FormItem>
                 )}
               />
-
-              {/* Remember + Forgot */}
-              <div className="flex justify-between items-center text-sm">
-                <label className="flex items-center gap-2 cursor-pointer text-gray-500">
-                  <Checkbox className="text-gray-500 border border-gray-400" />
-                  Remember me
-                </label>
-                <Link
-                  href="/forgot-password"
-                  className="underline  text-gray-500"
-                >
-                  Forgot password?
-                </Link>
-              </div>
+              <FormField
+                control={form.control}
+                name="password_confirmation"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <AppInput
+                        {...field}
+                        type={showConfirmPassword ? "text" : "password"}
+                        label="Confirm password"
+                        placeholder="Re-enter your password"
+                        fullWidth
+                        leftIcon={
+                          <RectangleEllipsisIcon
+                            size={16}
+                            className="text-black"
+                          />
+                        }
+                        rightIcon={
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="border-none hover:bg-white"
+                            onClick={() =>
+                              setShowConfirmPassword((prev) => !prev)
+                            }
+                          >
+                            {showConfirmPassword ? (
+                              <EyeIcon size={16} className="text-black" />
+                            ) : (
+                              <EyeClosedIcon size={16} className="text-black" />
+                            )}
+                          </Button>
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <AppButton
                 type="submit"
@@ -171,7 +225,7 @@ export default function SignInPage() {
                 disabled={!form.formState.isValid}
                 variant={form.formState.isValid ? "default" : "light"}
               >
-                {isPending ? "Loging..." : "Login"}
+                {isPending ? "Signing up ..." : "Signup"}
               </AppButton>
 
               <div className="flex items-center gap-4">
@@ -191,7 +245,7 @@ export default function SignInPage() {
                     width={20}
                     height={20}
                   />
-                  Sign in with Google
+                  Sign up with Google
                 </AppButton>
 
                 <AppButton variant="light" fullWidth>
@@ -201,7 +255,7 @@ export default function SignInPage() {
                     width={20}
                     height={20}
                   />
-                  Sign in with Apple
+                  Sign up with Apple
                 </AppButton>
               </div>
 
@@ -209,10 +263,10 @@ export default function SignInPage() {
               <div className="flex justify-center gap-2 text-sm text-gray-500">
                 <span>Don’t have an account?</span>
                 <Link
-                  href="/signup"
+                  href="/login"
                   className="text-primary underline font-medium"
                 >
-                  Register
+                  Login
                 </Link>
               </div>
             </form>

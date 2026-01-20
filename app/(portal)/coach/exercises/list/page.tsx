@@ -252,7 +252,7 @@ export default function Page() {
                 <h3 className="text-sm font-semibold text-slate-900">{ex.title}</h3>
 
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="rounded-md bg-[#EDF2FF] px-2 py-1 text-xs text-[#4541b3]">{ex.category || 'Uncategorized'}</span>
+                  <span className="rounded-md bg-[#EDF2FF] px-2 py-1 text-xs text-[#4541b3]">{ex.category ? (String(ex.category).charAt(0).toUpperCase() + String(ex.category).slice(1)) : 'Uncategorized'}</span>
                   {ex.equipment && <span className="rounded-md bg-[#FFF7ED] px-2 py-1 text-xs text-[#8a5a2b]">{ex.equipment}</span>}
                 </div>
 

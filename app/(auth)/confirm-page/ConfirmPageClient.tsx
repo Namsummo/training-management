@@ -130,7 +130,7 @@ export default function ConfirmPageClient() {
         title="Password updated successfully"
         description="Your password has been successfully updated, please log in first"
         buttonText="Login Now"
-        onConfirm={() => router.push("/signin")}
+        onConfirm={() => router.push("/login")}
       />
     </div>
   );
