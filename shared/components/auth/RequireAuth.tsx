@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getApiUser, getApiToken } from "@/shared/lib/auth";
 
@@ -12,24 +12,25 @@ type RequireAuthProps = {
 
 export default function RequireAuth({
   children,
-  fallback = null,
-  redirectTo = "/signin",
+  redirectTo = "/login",
 }: RequireAuthProps) {
   const router = useRouter();
-  const [ok, setOk] = useState(false);
+  const hasCheckedRef = useRef(false);
 
   useEffect(() => {
-    // perform a quick local check and redirect if missing
+    // Avoid running effect multiple times
+    if (hasCheckedRef.current) return;
+    hasCheckedRef.current = true;
+
     const user = getApiUser();
     const token = getApiToken();
+
     if (!user || !token) {
       // replace so user can't go back to protected page
       router.replace(redirectTo);
       return;
     }
-    setOk(true);
   }, [router, redirectTo]);
 
-  if (!ok) return <>{fallback}</>;
   return <>{children}</>;
 }
