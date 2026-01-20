@@ -79,8 +79,10 @@ export default function CreateExercisePage() {
       const tags = tagsInput.split(",").map((s) => s.trim()).filter(Boolean);
       tags.forEach((t) => body.append("tags[]", t));
 
-  // include selected positions
-  positionsSelected.forEach((p) => body.append("positions[]", p));
+      // send single position_relevance string (API expects a single value)
+      if (positionsSelected.length > 0) {
+        body.append("position_relevance", String(positionsSelected[0]));
+      }
 
       if (physicalIntensity) body.append("physical_intensity", physicalIntensity.toLowerCase());
       if (technicalDifficulty) body.append("technical_difficulty", technicalDifficulty.toLowerCase());
