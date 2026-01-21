@@ -110,10 +110,18 @@ export default function TrainingCalendar({
             })
           );
 
-          setEvents(mappedEvents);
+          // Sort events by start time (date + time)
+          const sortedEvents = mappedEvents.sort((a, b) => {
+            const dateA = new Date(a.start).getTime();
+            const dateB = new Date(b.start).getTime();
+            return dateA - dateB;
+          });
+
+          setEvents(sortedEvents);
         } else {
           setEvents([]);
         }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (error) {
         setEvents([]);
       } finally {
