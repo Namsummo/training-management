@@ -1,10 +1,83 @@
+"use client";
+
 import { AppButton } from "@/shared/components/ui/button/AppButton";
+import Link from "next/link";
+import Image from "next/image";
+import { useAthleteDetailQuery } from "@/shared/service/hooks/queries/useAthleteDetail.query";
+import { usePositionEnumQuery } from "@/shared/service/hooks/queries/usePositionEnum.query";
+
 type Props = { params: { athlete: string } };
 
 export default function AthleteDetailPage({ params }: Props) {
   const id = params?.athlete ?? "unknown";
-  const name =
-    id === "ATH-0922" || id === "ATH-0922" ? "Marcus Thorne" : "Marcus Johnson";
+  const { data: athleteData, isLoading, isError } = useAthleteDetailQuery(id);
+  const { data: positions = [] } = usePositionEnumQuery();
+
+  const athlete = athleteData?.data;
+
+  // Get position label
+  const positionLabel = athlete?.position_relevance
+    ? positions.find((p) => p.key === athlete.position_relevance)?.label || athlete.position_relevance
+    : "N/A";
+
+  // Format status
+  const getStatusInfo = (status: string | null | undefined) => {
+    const statusValue = status || null;
+    if (!statusValue) return { label: "Unknown", className: "bg-slate-50 text-slate-700" };
+    switch (statusValue.toLowerCase()) {
+      case "available":
+        return { label: "Available", className: "bg-green-50 text-green-700" };
+      case "injured":
+        return { label: "Injured", className: "bg-rose-50 text-black " };
+      case "inactive":
+        return { label: "Inactive", className: "bg-slate-50 text-black" };
+      default:
+        return { label: statusValue, className: "bg-slate-50 text-black" };
+    }
+  };
+
+  const statusInfo = getStatusInfo(athlete?.fitness_status || athlete?.athlete_status);
+
+  // Format date
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "N/A";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric"
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-6 bg-slate-50 min-h-screen">
+        <div className="max-w-6xl mx-auto">
+          <div className="rounded-lg bg-white p-6 shadow-sm">
+            <div className="text-center py-12">Loading athlete profile...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError || !athlete) {
+    return (
+      <div className="p-6 bg-slate-50 min-h-screen">
+        <div className="max-w-6xl mx-auto">
+          <div className="rounded-lg bg-white p-6 shadow-sm">
+            <div className="text-center py-12 text-rose-600">
+              Failed to load athlete profile
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 bg-slate-50 min-h-screen">
@@ -14,32 +87,54 @@ export default function AthleteDetailPage({ params }: Props) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-5">
               <div className="relative">
-                <div className="w-28 h-28 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 text-2xl">
-                  {/* avatar */}
-                </div>
+                {athlete.avatar ? (
+                  <div className="w-28 h-28 rounded-full overflow-hidden relative">
+                    <Image
+                      src={athlete.avatar}
+                      alt={athlete.name}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-28 h-28 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 text-2xl">
+                    {athlete.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#5954E6] border-2 border-white flex items-center justify-center text-white text-xs">
                   ✓
                 </div>
               </div>
 
               <div>
-                <h1 className="text-2xl font-semibold">{name}</h1>
+                <h1 className="text-2xl font-semibold">{athlete.name}</h1>
                 <div className="text-sm text-slate-500 mt-1">
-                  Position: Elite Striker • Jersey #9
+                  {positionLabel !== "N/A" && `Position: ${positionLabel}`}
+                  {athlete.jersey_number !== null && athlete.jersey_number !== undefined && (
+                    <span>
+                      {positionLabel !== "N/A" ? " • " : ""}Jersey #{athlete.jersey_number}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-3 mt-3 text-sm">
-                  <span className="inline-block bg-green-50 text-green-700 text-xs px-3 py-1 rounded-full">
-                    Available
+                  <span className={`inline-block text-xs px-3 py-1 rounded-full ${statusInfo.className}`}>
+                    {statusInfo.label}
                   </span>
-                  <span className="text-xs text-slate-400">
-                    Oct 24, 2023 • Review
-                  </span>
+                  {athlete.updated_at && (
+                    <span className="text-xs text-slate-400">
+                      Updated: {formatDate(athlete.updated_at)}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              <AppButton variant="ghost">Edit Profile</AppButton>
+              <Link href={`/coach/athletes/${id}/edit`}>
+                <AppButton variant="ghost" className="text-[#5954E6] border border-[#5954E6]">
+                  Edit Profile
+                </AppButton>
+              </Link>
               <AppButton>Export PDF</AppButton>
             </div>
           </div>
@@ -168,6 +263,55 @@ export default function AthleteDetailPage({ params }: Props) {
 
           {/* Right column */}
           <div className="col-span-4 space-y-6">
+            {/* Basic Information */}
+            <div className="rounded-lg border bg-white p-4">
+              <div className="text-sm font-semibold mb-4">Basic Information</div>
+              <div className="space-y-3 text-sm">
+                <div>
+                  <div className="text-xs text-slate-500">Email</div>
+                  <div className="text-slate-700 mt-1">{athlete.email}</div>
+                </div>
+                {athlete.birthday && (
+                  <div>
+                    <div className="text-xs text-slate-500">Date of Birth</div>
+                    <div className="text-slate-700 mt-1">{formatDate(athlete.birthday)}</div>
+                  </div>
+                )}
+                {athlete.gender && (
+                  <div>
+                    <div className="text-xs text-slate-500">Gender</div>
+                    <div className="text-slate-700 mt-1 capitalize">{athlete.gender}</div>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  {athlete.height !== null && (
+                    <div>
+                      <div className="text-xs text-slate-500">Height</div>
+                      <div className="text-slate-700 mt-1">{athlete.height} cm</div>
+                    </div>
+                  )}
+                  {athlete.weight !== null && (
+                    <div>
+                      <div className="text-xs text-slate-500">Weight</div>
+                      <div className="text-slate-700 mt-1">{athlete.weight} kg</div>
+                    </div>
+                  )}
+                </div>
+                {athlete.position_relevance && (
+                  <div>
+                    <div className="text-xs text-slate-500">Position</div>
+                    <div className="text-slate-700 mt-1">{positionLabel}</div>
+                  </div>
+                )}
+                {athlete.jersey_number !== null && (
+                  <div>
+                    <div className="text-xs text-slate-500">Jersey Number</div>
+                    <div className="text-slate-700 mt-1">#{athlete.jersey_number}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="rounded-lg border bg-white p-4 ring-2 ring-[#EEF2FF]">
               <div className="text-sm font-semibold">AI Insight</div>
               <div className="text-xs text-slate-500 mt-3">

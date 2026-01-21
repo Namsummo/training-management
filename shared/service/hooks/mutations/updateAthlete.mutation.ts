@@ -11,9 +11,13 @@ export const useUpdateAthleteMutation = () => {
   return useMutation<UpdateAthleteResponse, Error, { userId: string; payload: UpdateAthleteRequest }>({
     mutationFn: ({ userId, payload }) => updateAthleteService(userId, payload),
 
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: ["athletes"],
+      });
+      // Also invalidate the specific athlete detail query
+      queryClient.invalidateQueries({
+        queryKey: ["athlete", variables.userId],
       });
     },
   });

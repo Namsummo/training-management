@@ -1,0 +1,614 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { useRouter, useParams } from "next/navigation";
+import { AppButton } from "@/shared/components/ui/button/AppButton";
+import { ArrowLeft } from "lucide-react";
+import { useUpdateAthleteMutation } from "@/shared/service/hooks/mutations/updateAthlete.mutation";
+import z from "zod";
+import { AppInput } from "@/shared/components/ui/input/AppInput";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import Image from "next/image";
+import { UpdateAthleteRequest } from "@/shared/service/types/updateAthlete.type";
+import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { usePositionEnumQuery } from "@/shared/service/hooks/queries/usePositionEnum.query";
+import { AthleteStatus } from "@/shared/service/types/addAthlete.type";
+import { useAthleteDetailQuery } from "@/shared/service/hooks/queries/useAthleteDetail.query";
+
+// Schema for updating athlete - password is optional
+const updateAthleteSchema = z
+  .object({
+    name: z.string().min(1, "Name is required"),
+    email: z.string().email("Invalid email"),
+    password: z.string().min(8, "Password must be at least 8 characters").optional().or(z.literal("")),
+    password_confirmation: z.string().optional().or(z.literal("")),
+    birthday: z.string().nullable(),
+    height: z
+      .number()
+      .min(50, "Height too small")
+      .max(300, "Height too large")
+      .nullable(),
+    weight: z
+      .number()
+      .min(20, "Weight too small")
+      .max(300, "Weight too large")
+      .nullable(),
+    position_relevance: z.string().nullable(),
+    fitness_status: z
+      .enum([AthleteStatus.AVAILABLE, AthleteStatus.INJURED, AthleteStatus.INACTIVE])
+      .nullable(),
+    jersey_number: z.number().min(0, "").nullable(),
+    avatar: (typeof File !== "undefined" ? z.instanceof(File) : z.any()).nullable().optional(),
+  })
+  .refine(
+    (data) => {
+      // Only validate password match if password is provided
+      if (data.password && data.password.length > 0) {
+        return data.password === data.password_confirmation;
+      }
+      return true;
+    },
+    {
+      message: "Passwords do not match",
+      path: ["password_confirmation"],
+    }
+  );
+
+type UpdateAthleteFormValues = z.infer<typeof updateAthleteSchema>;
+
+export default function EditAthletePage() {
+  const router = useRouter();
+  const params = useParams() as { athlete?: string };
+  const athleteId = params?.athlete ?? "";
+  const [preview, setPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewUrlRef = useRef<string | null>(null);
+  const { data: positions = [], isLoading: positionsLoading } = usePositionEnumQuery();
+  const { mutate: updateAthleteMutation, isPending: isUpdating } = useUpdateAthleteMutation();
+  const { data: athleteData, isLoading: isLoadingAthlete } = useAthleteDetailQuery(athleteId);
+
+  const form = useForm<UpdateAthleteFormValues>({
+    resolver: zodResolver(updateAthleteSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+      password_confirmation: "",
+      birthday: null,
+      height: null,
+      weight: null,
+      position_relevance: null,
+      fitness_status: AthleteStatus.AVAILABLE,
+      jersey_number: null,
+      avatar: null,
+    },
+  });
+
+  // Cleanup blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current && previewUrlRef.current.startsWith("blob:")) {
+        URL.revokeObjectURL(previewUrlRef.current);
+      }
+    };
+  }, []);
+
+  // Populate form when athlete data is loaded
+  useEffect(() => {
+    if (athleteData?.data) {
+      const athlete = athleteData.data;
+
+      // Cleanup previous blob URL if exists
+      if (previewUrlRef.current && previewUrlRef.current.startsWith("blob:")) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+
+      form.reset({
+        name: athlete.name || "",
+        email: athlete.email || "",
+        password: "",
+        password_confirmation: "",
+        birthday: athlete.birthday || null,
+        height: athlete.height ?? null,
+        weight: athlete.weight ?? null,
+        position_relevance: athlete.position_relevance || null,
+        fitness_status: (athlete.fitness_status as AthleteStatus) || AthleteStatus.AVAILABLE,
+        jersey_number: athlete.jersey_number ?? null,
+        avatar: null,
+      });
+
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      // Set preview if avatar exists (from server URL)
+      // Using setTimeout to avoid setState in effect warning
+      setTimeout(() => {
+        if (athlete.avatar) {
+          setPreview(athlete.avatar);
+          previewUrlRef.current = athlete.avatar;
+        } else {
+          setPreview(null);
+          previewUrlRef.current = null;
+        }
+      }, 0);
+    }
+  }, [athleteData, form]);
+
+  function handleSave(values: UpdateAthleteFormValues) {
+    const payload: UpdateAthleteRequest = {
+      name: values.name,
+      email: values.email,
+      position_relevance: values.position_relevance,
+      height: values.height,
+      weight: values.weight,
+      birthday: values.birthday,
+      fitness_status: values.fitness_status,
+      athlete_status: values.fitness_status,
+      jersey_number: values.jersey_number,
+    };
+
+    // Only include password if provided
+    if (values.password && values.password.length > 0) {
+      payload.password = values.password;
+      payload.password_confirmation = values.password_confirmation || "";
+    }
+
+    // Only include avatar if a new file was selected
+    if (values.avatar instanceof File) {
+      payload.avatar = values.avatar;
+    }
+
+    updateAthleteMutation(
+      { userId: athleteId, payload },
+      {
+        onSuccess: (res) => {
+          toast.success("Success", {
+            description: res.message || "Athlete profile updated successfully",
+          });
+          router.push(`/coach/athletes/${athleteId}`);
+        },
+        onError: (error: Error & { response?: { data?: { message?: string } } }) => {
+          toast.error("Error", {
+            description: error?.response?.data?.message || "Failed to update athlete profile",
+          });
+        },
+      }
+    );
+  }
+
+  if (isLoadingAthlete) {
+    return (
+      <div className="p-6">
+        <div className="max-w-3xl mx-auto bg-white rounded-lg border p-6">
+          <div className="text-center py-12">Loading athlete data...</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6">
+      <div className="max-w-3xl mx-auto bg-white rounded-lg border p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-semibold">Edit Athlete Profile</h1>
+            <div className="text-sm text-slate-500 mt-1">
+              Update athlete information and profile details.
+            </div>
+          </div>
+          <div>
+            <Link href={`/coach/athletes/${athleteId}`}>
+              <AppButton
+                className="text-sm px-3 py-2 border rounded bg-slate-50"
+                variant="outline"
+              >
+                <ArrowLeft size={16} />
+                Back to Profile
+              </AppButton>
+            </Link>
+          </div>
+        </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSave)} className="space-y-6">
+            <FormField
+              control={form.control}
+              name="avatar"
+              render={({ field }) => {
+                return (
+                  <FormItem>
+                    <FormControl>
+                      <div className="flex flex-col items-center gap-4 py-6 border-b">
+                        <label
+                          htmlFor="avatar-upload"
+                          className="relative w-28 h-28 rounded-full bg-slate-100 flex items-center justify-center cursor-pointer overflow-hidden group"
+                        >
+                          {preview ? (
+                            <Image
+                              src={preview}
+                              alt="Avatar preview"
+                              fill
+                              className="object-cover"
+                            />
+                          ) : (
+                            <span className="text-slate-400 text-sm">
+                              Upload
+                            </span>
+                          )}
+
+                          {/* hover overlay */}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs transition">
+                            Change
+                          </div>
+                        </label>
+
+                        <Input
+                          ref={fileInputRef}
+                          id="avatar-upload"
+                          type="file"
+                          accept="image/*"
+                          hidden
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+
+                            // Validate file size (max 2MB)
+                            if (file.size > 2 * 1024 * 1024) {
+                              toast.error("File too large", {
+                                description: "Please select an image smaller than 2MB",
+                              });
+                              if (fileInputRef.current) {
+                                fileInputRef.current.value = "";
+                              }
+                              return;
+                            }
+
+                            // Validate file type
+                            if (!file.type.startsWith("image/")) {
+                              toast.error("Invalid file type", {
+                                description: "Please select an image file",
+                              });
+                              if (fileInputRef.current) {
+                                fileInputRef.current.value = "";
+                              }
+                              return;
+                            }
+
+                            // Cleanup previous blob URL if exists
+                            if (previewUrlRef.current && previewUrlRef.current.startsWith("blob:")) {
+                              URL.revokeObjectURL(previewUrlRef.current);
+                            }
+
+                            // Create new preview URL
+                            const url = URL.createObjectURL(file);
+                            setPreview(url);
+                            previewUrlRef.current = url;
+
+                            // Set file into form
+                            field.onChange(file);
+                          }}
+                        />
+
+                        <div className="text-sm text-slate-500">
+                          Athlete Profile Picture
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          Recommended: Square image, max 2MB
+                        </div>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
+            />
+
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 rounded bg-[#EEF0FF] flex items-center justify-center text-[#5954E6]">
+                  👤
+                </div>
+                <div className="text-sm font-medium">Personal Information</div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <AppInput
+                          {...field}
+                          label="Name"
+                          placeholder="First and last name"
+                          fullWidth
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <AppInput
+                          {...field}
+                          label="Email"
+                          placeholder="example@email.com"
+                          fullWidth
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <AppInput
+                          {...field}
+                          type="password"
+                          label="Password (leave blank to keep current)"
+                          placeholder="****"
+                          fullWidth
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password_confirmation"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <AppInput
+                          {...field}
+                          type="password"
+                          label="Confirm Password"
+                          placeholder="****"
+                          fullWidth
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="col-span-2 grid grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="position_relevance"
+                    render={({ field }) => (
+                      <FormItem>
+                        <label className="text-sm font-medium text-black">
+                          Position
+                        </label>
+                        <FormControl>
+                          <Select
+                            value={field.value ?? ""}
+                            onValueChange={(value) =>
+                              field.onChange(value === "" ? null : value)
+                            }
+                            disabled={positionsLoading}
+                          >
+                            <SelectTrigger className="h-[48px] w-full">
+                              <SelectValue placeholder="Select position" />
+                            </SelectTrigger>
+
+                            <SelectContent
+                              className="h-[260px] overflow-y-auto"
+                              position="popper"
+                              side="bottom"
+                              align="start"
+                            >
+                              {positions.map((pos) => (
+                                <SelectItem key={pos.key} value={pos.key}>
+                                  {pos.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="height"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <AppInput
+                            {...field}
+                            label="Height (cm)"
+                            placeholder="180"
+                            fullWidth
+                            value={field.value ?? ""}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              field.onChange(
+                                value === "" ? null : Number(value)
+                              );
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="weight"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <AppInput
+                            {...field}
+                            label="Weight (kg)"
+                            placeholder="98"
+                            fullWidth
+                            value={field.value ?? ""}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              field.onChange(
+                                value === "" ? null : Number(value)
+                              );
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="jersey_number"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <AppInput
+                          {...field}
+                          label="Jersey number"
+                          placeholder="0"
+                          fullWidth
+                          value={field.value ?? ""}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            field.onChange(value === "" ? null : Number(value));
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="birthday"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <AppInput
+                          {...field}
+                          type="date"
+                          label="Date of Birth"
+                          fullWidth
+                          value={field.value ?? ""}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            field.onChange(value === "" ? null : value);
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="fitness_status"
+                  render={({ field }) => (
+                    <div className="col-span-2">
+                      <label className="text-xs text-slate-500">
+                        Athlete Status
+                      </label>
+
+                      <div className="mt-2 flex gap-2">
+                        <AppButton
+                          type="button"
+                          onClick={() =>
+                            field.onChange(AthleteStatus.AVAILABLE)
+                          }
+                          className={`px-4 py-2 rounded-full border text-[#5954E6] transition ${
+                            field.value === AthleteStatus.AVAILABLE
+                              ? "bg-white border-[#5954E6]"
+                              : "bg-slate-50"
+                          }`}
+                        >
+                          Active
+                        </AppButton>
+
+                        <AppButton
+                          type="button"
+                          onClick={() => field.onChange(AthleteStatus.INJURED)}
+                          className={`px-4 py-2 rounded-full border text-[#5954E6] transition ${
+                            field.value === AthleteStatus.INJURED
+                              ? "bg-white border-[#5954E6]"
+                              : "bg-slate-50"
+                          }`}
+                        >
+                          Injured
+                        </AppButton>
+
+                        <AppButton
+                          type="button"
+                          onClick={() => field.onChange(AthleteStatus.INACTIVE)}
+                          className={`px-4 py-2 rounded-full border text-[#5954E6] transition ${
+                            field.value === AthleteStatus.INACTIVE
+                              ? "bg-white border-[#5954E6]"
+                              : "bg-slate-50"
+                          }`}
+                        >
+                          Inactive
+                        </AppButton>
+                      </div>
+
+                      <FormMessage />
+                    </div>
+                  )}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-4">
+              <Link href={`/coach/athletes/${athleteId}`}>
+                <Button
+                  variant="outline"
+                  type="button"
+                  className="px-4 py-2 rounded border h-10"
+                >
+                  Cancel
+                </Button>
+              </Link>
+              <AppButton type="submit" disabled={isUpdating}>
+                {isUpdating ? "Saving..." : "Save Changes"}
+              </AppButton>
+            </div>
+          </form>
+        </Form>
+      </div>
+    </div>
+  );
+}
