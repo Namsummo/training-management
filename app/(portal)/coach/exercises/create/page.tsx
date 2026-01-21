@@ -391,10 +391,10 @@ export default function CreateExercisePage() {
                 <label className="text-sm font-medium text-black">Position Relevance</label>
                 <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="Position relevance">
                   {[
-                    { key: "Forward", label: "Forward" },
-                    { key: "Defense", label: "Defense" },
-                    { key: "Goalkeeper", label: "Goalkeeper" },
-                    { key: "Midfielder", label: "Midfielder" },
+                    { key: "forward", label: "Forward" },
+                    { key: "defense", label: "Defense" },
+                    { key: "goalkeeper", label: "Goalkeeper" },
+                    { key: "midfielder", label: "Midfielder" },
                   ].map((pos) => {
                     const selected = positionsSelected.includes(pos.key);
                     return (
