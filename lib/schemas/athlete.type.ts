@@ -23,7 +23,9 @@ export const athleteSchema = z
       .enum([AthleteStatus.AVAILABLE, AthleteStatus.INJURED])
       .nullable(),
     jersey_number: z.number().min(0, ""),
-    avatar: z.instanceof(File).nullable().optional(),
+    // `File` is a browser global and is undefined during server-side builds.
+    // Guard with `typeof File` so the schema doesn't throw when evaluated on the server.
+    avatar: (typeof File !== "undefined" ? z.instanceof(File) : z.any()).nullable().optional(),
   })
   .refine((data) => data.password === data.password_confirmation, {
     message: "Passwords do not match",
