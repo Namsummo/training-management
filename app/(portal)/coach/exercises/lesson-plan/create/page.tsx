@@ -585,7 +585,7 @@ export default function CreateLessonPlanPage() {
                       onDrop={(e) => onDropToSection(e, "warm-up")}
                     >
                       {(displayedSections["warm-up"] || []).length === 0 ? (
-                        <div className="text-sm text-slate-400">Drag drills here from the Exercise Library</div>
+                        <div className="flex items-center justify-center min-h-[120px] text-sm text-slate-400 opacity-50">Drag & drop to add exercises</div>
                       ) : (
                         (displayedSections["warm-up"] || []).map((s: any) => {
                           const badge = s.badge || '';
@@ -612,12 +612,6 @@ export default function CreateLessonPlanPage() {
                         })
                       )}
                     </div>
-                    <div className="mt-3">
-                      <button className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-[#E6E9FF] text-sm text-[#5954E6] bg-white">
-                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#F0E9FF] text-[#6B52E6] text-xs">+</span>
-                        <span> Add Exercise</span>
-                      </button>
-                    </div>
                   </section>
 
                   <section className="rounded-md border p-4 bg-white">
@@ -629,12 +623,12 @@ export default function CreateLessonPlanPage() {
                     </div>
 
                     <div
-                      className="space-y-3 min-h-[120px]"
+                      className="rounded-md border border-dashed border-[#DDEBFF] p-3 space-y-3 bg-[#FBFDFF] min-h-[120px]"
                       onDragOver={onDragOver}
                       onDrop={(e) => onDropToSection(e, "main-workout")}
                     >
                       {(displayedSections["main-workout"] || []).length === 0 ? (
-                        <div className="text-sm text-slate-400">Drag drills here from the Exercise Library</div>
+                        <div className="flex items-center justify-center min-h-[120px] text-sm text-slate-400 opacity-50">Drag & drop to add exercises</div>
                       ) : (
                         (displayedSections["main-workout"] || []).map((s: any) => {
                           const badge = s.badge || '';
@@ -661,13 +655,6 @@ export default function CreateLessonPlanPage() {
                         })
                       )}
                     </div>
-
-                    <div className="mt-3">
-                      <button className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-[#E6E9FF] text-sm text-[#5954E6] bg-white">
-                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#F0E9FF] text-[#6B52E6] text-xs">+</span>
-                        <span> Add Exercise</span>
-                      </button>
-                    </div>
                   </section>
 
                   <section className="rounded-md border p-4 bg-white">
@@ -684,12 +671,12 @@ export default function CreateLessonPlanPage() {
                     </div>
 
                     <div
-                      className="space-y-3 min-h-[120px]"
+                      className="rounded-md border border-dashed border-[#DDEBFF] p-3 space-y-3 bg-[#FBFDFF] min-h-[120px]"
                       onDragOver={onDragOver}
                       onDrop={(e) => onDropToSection(e, "cool-down")}
                     >
                       {(displayedSections["cool-down"] || []).length === 0 ? (
-                        <div className="text-sm text-slate-400">Drag drills here from the Exercise Library</div>
+                        <div className="flex items-center justify-center min-h-[120px] text-sm text-slate-400 opacity-50">Drag & drop to add exercises</div>
                       ) : (
                         (displayedSections["cool-down"] || []).map((s: any) => {
                           const badge = s.badge || '';
@@ -716,16 +703,7 @@ export default function CreateLessonPlanPage() {
                         })
                       )}
                     </div>
-
-                    <div className="mt-3">
-                      <button className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-[#E6E9FF] text-sm text-[#5954E6] bg-white">
-                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#F0E9FF] text-[#6B52E6] text-xs">+</span>
-                        <span> Add Exercise</span>
-                      </button>
-                    </div>
                   </section>
-
-              
                 </div>
               </div>
 
