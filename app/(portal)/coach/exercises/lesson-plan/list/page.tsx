@@ -4,6 +4,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AppInput } from "@/shared/components/ui/input/AppInput";
 import { AppButton } from "@/shared/components/ui/button/AppButton";
+import { PencilIcon, TrashIcon } from "lucide-react";
 
 type Plan = {
   id: string;
@@ -254,8 +255,12 @@ export default function page() {
                   </td>
                   <td className="py-4">
                     <div className="flex items-center gap-3">
-                      <button onClick={() => handleEdit(p.id)} className="text-slate-500 hover:text-slate-900">✏️</button>
-                      <button onClick={() => handleDelete(p.id)} className="text-rose-500 hover:text-rose-700">🗑️</button>
+                      <button onClick={() => handleEdit(p.id)} className="text-slate-500 hover:text-slate-900" aria-label="Edit">
+                        <PencilIcon className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDelete(p.id)} className="text-rose-500 hover:text-rose-700" aria-label="Delete">
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
