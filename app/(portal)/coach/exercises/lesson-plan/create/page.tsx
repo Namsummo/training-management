@@ -20,9 +20,9 @@ export default function CreateLessonPlanPage() {
   const [drillsLoading, setDrillsLoading] = useState(false);
   const [asideSearch, setAsideSearch] = useState<string>("");
   const [planName, setPlanName] = useState<string>("");
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
-  const [targetOutcomes, setTargetOutcomes] = useState<string[]>([]);
+  const [startDate, setStartDate] = useState<string>(new Date().toISOString().slice(0, 10)); // Default to today
+  const [endDate, setEndDate] = useState<string>(new Date(new Date().getTime() + 1 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)); // Default to 7 days from today
+  const [targetOutcomes, setTargetOutcomes] = useState<string[]>(['Conditioning', 'Technical', 'Rehab', 'Strength']); // Default to Conditioning, Technical, Rehab, and Strength
   const [description, setDescription] = useState<string>("");
   // small toast system (local to this page)
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -257,7 +257,7 @@ export default function CreateLessonPlanPage() {
     return sectionsPayload;
   };
 
-  const createPlan = async () => {
+  const createPlan = async (isSynced: boolean = false) => {
     try {
       const sectionsPayload = buildStepsPayload();
 
@@ -280,6 +280,7 @@ export default function CreateLessonPlanPage() {
         status: 'draft',
         sections: sectionsPayload,
         user_ids: selectedUserIds || [],
+        is_synced: isSynced,
       };
 
       const res = await fetch(`${DEFAULT_BASE}/plans`, {
@@ -361,6 +362,7 @@ export default function CreateLessonPlanPage() {
           title: d.title,
           badge: d.technical_difficulty || d.difficulty || 'Med Int',
           time: d.duration ? `${d.duration}m` : '—',
+          duration: d.duration || 0,
           category: d.category || d.category_key || null,
         }));
         setDrills(mapped);
@@ -406,6 +408,30 @@ export default function CreateLessonPlanPage() {
   const templateSections = { "warm-up": sections["warm-up"] || [], "main-workout": sections["main-workout"] || [], "cool-down": sections["cool-down"] || [] };
   const displayedSections = activeDate ? (sectionsByDate[activeDate] || templateSections) : templateSections;
 
+  // Calculate duration for a section
+  const getSectionDuration = (sectionKey: "warm-up" | "main-workout" | "cool-down"): number => {
+    const sectionExercises = (displayedSections as Record<string, any[]>)[sectionKey] || [];
+    return sectionExercises.reduce((sum: number, ex: any) => {
+      // Parse duration from time field (e.g., "29m" -> 29)
+      let duration = 0;
+      if (ex.time) {
+        const timeStr = String(ex.time).trim();
+        // Remove "m" and parse the number
+        const parsed = parseFloat(timeStr.replace(/m$/i, '').trim());
+        duration = isNaN(parsed) ? 0 : parsed;
+      } else if (ex.duration) {
+        // Fallback to duration field if time is not available
+        duration = typeof ex.duration === 'number' ? ex.duration : (typeof ex.duration === 'string' ? parseFloat(ex.duration) || 0 : 0);
+      }
+      return sum + duration;
+    }, 0);
+  };
+
+  // Calculate total duration across all sections
+  const getTotalDuration = (): number => {
+    return getSectionDuration("warm-up") + getSectionDuration("main-workout") + getSectionDuration("cool-down");
+  };
+
   return (
     <div className="p-6">
       {step === 1 && (
@@ -442,18 +468,9 @@ export default function CreateLessonPlanPage() {
                 <label className="block text-sm font-medium mb-2">Target Outcome</label>
                 <div className="flex gap-2 flex-wrap">
                   {['Conditioning','Technical','Rehab','Strength'].map((t) => {
-                    const selected = targetOutcomes.includes(t);
+                    const selected = targetOutcomes.includes(t) || (t === 'Conditioning' && targetOutcomes.length === 0); // Default to Conditioning
                     return (
-                      <button
-                        key={t}
-                        type="button"
-                        role="checkbox"
-                        aria-checked={selected}
-                        onClick={() => setTargetOutcomes((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]))}
-                        className={`px-3 py-1 rounded-full text-sm ${selected ? 'bg-[#f1f5ff] text-[#4541b3] border-[#5954E6]' : 'border bg-white'}`}
-                      >
-                        {t}
-                      </button>
+                      <button key={t} type="button" role="checkbox" aria-checked={selected} onClick={() => setTargetOutcomes((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]))} className={`px-3 py-1 rounded-full text-sm ${selected ? 'bg-[#f1f5ff] text-[#4541b3] border-[#5954E6]' : 'border bg-white'}`}>{t}</button>
                     );
                   })}
                 </div>
@@ -505,7 +522,6 @@ export default function CreateLessonPlanPage() {
                         </button>
                       );
                     })}
-    
                     <span className="text-sm text-slate-400">Created by {creatorName} • {createdAtDisplay}</span>
                   </div>
 
@@ -516,7 +532,7 @@ export default function CreateLessonPlanPage() {
                       <input
                         type="time"
                         disabled={!activeDate}
-                        value={activeDate ? (startTimes[activeDate] || '10:30') : '10:30'}
+                        value={activeDate ? (startTimes[activeDate] || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })) : new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} // Default now
                         onChange={(e) => {
                           if (!activeDate) return;
                           const v = e.target.value;
@@ -532,7 +548,7 @@ export default function CreateLessonPlanPage() {
                 <div className="flex items-center">
                   <div className="rounded-lg bg-slate-50 px-4 py-3 text-center">
                     <div className="text-xs text-slate-500">Duration</div>
-                    <div className="text-lg font-semibold text-[#5954E6]">45 MIN</div>
+                    <div className="text-lg font-semibold text-[#5954E6]">{getTotalDuration()} MIN</div>
                   </div>
                 </div>
               </div>
@@ -542,7 +558,7 @@ export default function CreateLessonPlanPage() {
                   {/* Save Steps removed — creation now happens when user clicks Start Training on Step 3 */}
                   <section className="rounded-lg border-2 border-[#E8F0FF] bg-white p-4 relative">
                     {/* top-right duration badge */}
-                    <div className="absolute right-4 top-4 text-xs font-semibold text-[#5954E6]">10 MIN</div>
+                    <div className="absolute right-4 top-4 text-xs font-semibold text-[#5954E6]">{getSectionDuration("warm-up")} MIN</div>
 
                     <div className="flex items-center gap-2 mb-3">
                       <div className="inline-flex h-6 w-6 items-center justify-center rounded bg-[#EEF4FF] text-[#2B4BFF]">
@@ -560,7 +576,7 @@ export default function CreateLessonPlanPage() {
                       onDrop={(e) => onDropToSection(e, "warm-up")}
                     >
                       {(displayedSections["warm-up"] || []).length === 0 ? (
-                        <div className="text-sm text-slate-400">Drag drills here from the Exercise Library</div>
+                        <div className="flex items-center justify-center min-h-[120px] text-sm text-slate-400 opacity-50">Drag & drop to add exercises</div>
                       ) : (
                         (displayedSections["warm-up"] || []).map((s: any) => {
                           const badge = s.badge || '';
@@ -587,12 +603,6 @@ export default function CreateLessonPlanPage() {
                         })
                       )}
                     </div>
-                    <div className="mt-3">
-                      <button className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-[#E6E9FF] text-sm text-[#5954E6] bg-white">
-                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#F0E9FF] text-[#6B52E6] text-xs">+</span>
-                        <span> Add Exercise</span>
-                      </button>
-                    </div>
                   </section>
 
                   <section className="rounded-md border p-4 bg-white">
@@ -600,16 +610,16 @@ export default function CreateLessonPlanPage() {
                       <div className="flex items-center gap-2">
                         <div className="text-sm font-medium">Technical / Power</div>
                       </div>
-                      <div className="text-xs font-semibold text-[#5954E6]">25 MIN</div>
+                      <div className="text-xs font-semibold text-[#5954E6]">{getSectionDuration("main-workout")} MIN</div>
                     </div>
 
                     <div
-                      className="space-y-3 min-h-[120px]"
+                      className="rounded-md border border-dashed border-[#DDEBFF] p-3 space-y-3 bg-[#FBFDFF] min-h-[120px]"
                       onDragOver={onDragOver}
                       onDrop={(e) => onDropToSection(e, "main-workout")}
                     >
                       {(displayedSections["main-workout"] || []).length === 0 ? (
-                        <div className="text-sm text-slate-400">Drag drills here from the Exercise Library</div>
+                        <div className="flex items-center justify-center min-h-[120px] text-sm text-slate-400 opacity-50">Drag & drop to add exercises</div>
                       ) : (
                         (displayedSections["main-workout"] || []).map((s: any) => {
                           const badge = s.badge || '';
@@ -636,13 +646,6 @@ export default function CreateLessonPlanPage() {
                         })
                       )}
                     </div>
-
-                    <div className="mt-3">
-                      <button className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-[#E6E9FF] text-sm text-[#5954E6] bg-white">
-                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#F0E9FF] text-[#6B52E6] text-xs">+</span>
-                        <span> Add Exercise</span>
-                      </button>
-                    </div>
                   </section>
 
                   <section className="rounded-md border p-4 bg-white">
@@ -655,16 +658,16 @@ export default function CreateLessonPlanPage() {
                         </div>
                         <div className="text-sm font-medium">Cool down</div>
                       </div>
-                      <div className="text-xs font-semibold text-[#5954E6]">25 MIN</div>
+                      <div className="text-xs font-semibold text-[#5954E6]">{getSectionDuration("cool-down")} MIN</div>
                     </div>
 
                     <div
-                      className="space-y-3 min-h-[120px]"
+                      className="rounded-md border border-dashed border-[#DDEBFF] p-3 space-y-3 bg-[#FBFDFF] min-h-[120px]"
                       onDragOver={onDragOver}
                       onDrop={(e) => onDropToSection(e, "cool-down")}
                     >
                       {(displayedSections["cool-down"] || []).length === 0 ? (
-                        <div className="text-sm text-slate-400">Drag drills here from the Exercise Library</div>
+                        <div className="flex items-center justify-center min-h-[120px] text-sm text-slate-400 opacity-50">Drag & drop to add exercises</div>
                       ) : (
                         (displayedSections["cool-down"] || []).map((s: any) => {
                           const badge = s.badge || '';
@@ -691,16 +694,7 @@ export default function CreateLessonPlanPage() {
                         })
                       )}
                     </div>
-
-                    <div className="mt-3">
-                      <button className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-[#E6E9FF] text-sm text-[#5954E6] bg-white">
-                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#F0E9FF] text-[#6B52E6] text-xs">+</span>
-                        <span> Add Exercise</span>
-                      </button>
-                    </div>
                   </section>
-
-              
                 </div>
               </div>
 
@@ -802,17 +796,17 @@ export default function CreateLessonPlanPage() {
                   <div className="text-sm font-medium">1. Selected Athletes & Teams</div>
                   <div className="text-sm text-slate-500"><button onClick={openUserModal} className="underline">Edit Selection</button></div>
                 </div>
-                  <div className="mt-3 flex items-center gap-3">
-                  {selectedUsers && selectedUsers.slice(0, 3).map((u: any) => (
-                    <div key={`sel-${u.id}`} className={`h-8 w-8 rounded-full flex items-center justify-center ${pickAvatarClass(u.name)}`}>
+                  <div className="mt-3 flex items-center">
+                  {selectedUsers && selectedUsers.slice(0, 3).map((u: any, index: number) => (
+                    <div key={`sel-${u.id}`} className={`h-8 w-8 rounded-full flex items-center justify-center ${pickAvatarClass(u.name)} ${index > 0 ? '-ml-2' : ''} border-2 border-white`}>
                       <span className="text-xs font-semibold">{getInitials(u.name)}</span>
                     </div>
                   ))}
                   {/* placeholders if fewer than 3 */}
                   {Array.from({ length: Math.max(0, 3 - (selectedUsers || []).length) }).map((_, i) => (
-                    <div key={`ph-${i}`} className="h-8 w-8 rounded-full bg-slate-200" />
+                    <div key={`ph-${i}`} className={`h-8 w-8 rounded-full bg-slate-200 border-2 border-white ${(selectedUsers?.length || 0) + i > 0 ? '-ml-2' : ''}`} />
                   ))}
-                  <div className="text-xs rounded-full bg-[#eef2ff] text-[#5b21b6] px-2 py-1">+{Math.max(0, (selectedUsers?.length || 0) - 3)}</div>
+                  <div className={`h-8 w-8 text-xs flex items-center justify-center rounded-full bg-[#eef2ff] text-[#5b21b6] px-2 py-1 -ml-2`}>+{Math.max(0, (selectedUsers?.length || 0) - 3)}</div>
                   <div className="text-sm">Men's Varsity Football Squad ({(selectedUsers?.length || 0)} Total)</div>
                 </div>
               </div>
@@ -871,17 +865,17 @@ export default function CreateLessonPlanPage() {
 
           <div className="flex items-center gap-3">
             {step > 1 && (
-              <AppButton variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))}>Back</AppButton>
+              <AppButton variant="ghost" className="text-[#5954E6] bg-transparent border border-[#5954E6]" onClick={() => setStep((s) => Math.max(1, s - 1))}>Back</AppButton>
             )}
             {step < 3 ? (
               <>
-                <AppButton variant="ghost">Save as Draft</AppButton>
+                <AppButton variant="ghost" className="text-[#5954E6] bg-transparent border border-[#5954E6]">Save as Draft</AppButton>
                 <AppButton onClick={() => setStep((s) => s + 1)}>Next Step →</AppButton>
               </>
             ) : (
               <>
-                <AppButton variant="ghost">Generate &amp; Sync to Calendar</AppButton>
-                <AppButton onClick={createPlan}>Start Training</AppButton>
+                <AppButton variant="default" className="text-[#5954E6] bg-transparent border border-[#5954E6]" onClick={() => { createPlan(true); }}>Generate & Sync to Calendar</AppButton>
+                <AppButton onClick={() => { createPlan(); }} className="bg-[#5954E6] text-white">Start Training</AppButton>
               </>
             )}
           </div>
