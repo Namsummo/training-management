@@ -361,6 +361,7 @@ export default function CreateLessonPlanPage() {
           title: d.title,
           badge: d.technical_difficulty || d.difficulty || 'Med Int',
           time: d.duration ? `${d.duration}m` : '—',
+          duration: d.duration || 0,
           category: d.category || d.category_key || null,
         }));
         setDrills(mapped);
@@ -405,6 +406,30 @@ export default function CreateLessonPlanPage() {
   // derive which sections to render: per-active-date if set, otherwise the template `sections`
   const templateSections = { "warm-up": sections["warm-up"] || [], "main-workout": sections["main-workout"] || [], "cool-down": sections["cool-down"] || [] };
   const displayedSections = activeDate ? (sectionsByDate[activeDate] || templateSections) : templateSections;
+
+  // Calculate duration for a section
+  const getSectionDuration = (sectionKey: "warm-up" | "main-workout" | "cool-down"): number => {
+    const sectionExercises = (displayedSections as Record<string, any[]>)[sectionKey] || [];
+    return sectionExercises.reduce((sum: number, ex: any) => {
+      // Parse duration from time field (e.g., "29m" -> 29)
+      let duration = 0;
+      if (ex.time) {
+        const timeStr = String(ex.time).trim();
+        // Remove "m" and parse the number
+        const parsed = parseFloat(timeStr.replace(/m$/i, '').trim());
+        duration = isNaN(parsed) ? 0 : parsed;
+      } else if (ex.duration) {
+        // Fallback to duration field if time is not available
+        duration = typeof ex.duration === 'number' ? ex.duration : (typeof ex.duration === 'string' ? parseFloat(ex.duration) || 0 : 0);
+      }
+      return sum + duration;
+    }, 0);
+  };
+
+  // Calculate total duration across all sections
+  const getTotalDuration = (): number => {
+    return getSectionDuration("warm-up") + getSectionDuration("main-workout") + getSectionDuration("cool-down");
+  };
 
   return (
     <div className="p-6">
@@ -532,7 +557,7 @@ export default function CreateLessonPlanPage() {
                 <div className="flex items-center">
                   <div className="rounded-lg bg-slate-50 px-4 py-3 text-center">
                     <div className="text-xs text-slate-500">Duration</div>
-                    <div className="text-lg font-semibold text-[#5954E6]">45 MIN</div>
+                    <div className="text-lg font-semibold text-[#5954E6]">{getTotalDuration()} MIN</div>
                   </div>
                 </div>
               </div>
@@ -542,7 +567,7 @@ export default function CreateLessonPlanPage() {
                   {/* Save Steps removed — creation now happens when user clicks Start Training on Step 3 */}
                   <section className="rounded-lg border-2 border-[#E8F0FF] bg-white p-4 relative">
                     {/* top-right duration badge */}
-                    <div className="absolute right-4 top-4 text-xs font-semibold text-[#5954E6]">10 MIN</div>
+                    <div className="absolute right-4 top-4 text-xs font-semibold text-[#5954E6]">{getSectionDuration("warm-up")} MIN</div>
 
                     <div className="flex items-center gap-2 mb-3">
                       <div className="inline-flex h-6 w-6 items-center justify-center rounded bg-[#EEF4FF] text-[#2B4BFF]">
@@ -600,7 +625,7 @@ export default function CreateLessonPlanPage() {
                       <div className="flex items-center gap-2">
                         <div className="text-sm font-medium">Technical / Power</div>
                       </div>
-                      <div className="text-xs font-semibold text-[#5954E6]">25 MIN</div>
+                      <div className="text-xs font-semibold text-[#5954E6]">{getSectionDuration("main-workout")} MIN</div>
                     </div>
 
                     <div
@@ -655,7 +680,7 @@ export default function CreateLessonPlanPage() {
                         </div>
                         <div className="text-sm font-medium">Cool down</div>
                       </div>
-                      <div className="text-xs font-semibold text-[#5954E6]">25 MIN</div>
+                      <div className="text-xs font-semibold text-[#5954E6]">{getSectionDuration("cool-down")} MIN</div>
                     </div>
 
                     <div
