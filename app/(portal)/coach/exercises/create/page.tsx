@@ -87,6 +87,10 @@ export default function CreateExercisePage() {
       if (physicalIntensity) body.append("physical_intensity", physicalIntensity.toLowerCase());
       if (technicalDifficulty) body.append("technical_difficulty", technicalDifficulty.toLowerCase());
 
+      // include optional category and subtitle if provided
+      if (category) body.append("category", category);
+      if (subtitle) body.append("subtitle", subtitle);
+
       body.append("is_visible_to_coaches", isVisibleToCoaches ? "1" : "0");
       body.append("add_to_daily_planner", addToDailyPlanner ? "1" : "0");
       body.append("status", status);
