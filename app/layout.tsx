@@ -14,7 +14,7 @@ const robotoMono = Roboto_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tranining Management",
+  title: "Trainning Management",
   description: "Training Management System",
 };
 
