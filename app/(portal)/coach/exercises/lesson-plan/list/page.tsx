@@ -48,8 +48,9 @@ export default function Page() {
   const router = useRouter();
 
   const { data, isLoading, error } = useGetListTrainingPlans({
-    per_page: 1,
+    per_page: 10,
     get_all: 0,
+    page: 1,
   });
   const plans: Plan[] = useMemo(() => data?.data.data ?? [], [data]);
 
