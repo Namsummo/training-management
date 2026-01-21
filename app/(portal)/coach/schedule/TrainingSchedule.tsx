@@ -63,7 +63,7 @@ export default function TrainingCalendar({
   );
   const [isAllSelected, setIsAllSelected] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [events, setEvents] = useState<unknown[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Fetch schedules from API
