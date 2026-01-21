@@ -7,12 +7,12 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { EventContentArg, DatesSetArg } from "@fullcalendar/core";
 
-import { events } from "./(contants)/event.type";
 import EventModal from "./EventModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, SearchIcon } from "lucide-react";
 import { AppInput } from "@/shared/components/ui/input/AppInput";
+import { getSchedules, ScheduleSection } from "@/shared/service/api/schedule.service";
 
 const VIEW_OPTIONS = [
   { label: "Month", value: "dayGridMonth" },
@@ -63,6 +63,66 @@ export default function TrainingCalendar({
   );
   const [isAllSelected, setIsAllSelected] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [events, setEvents] = useState<unknown[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch schedules from API
+  useEffect(() => {
+    const fetchSchedules = async () => {
+      try {
+        setLoading(true);
+        const response = await getSchedules();
+
+        if (response.success && response.data && Array.isArray(response.data)) {
+          // Map API response to calendar events format
+          const mappedEvents = response.data.flatMap((plan) =>
+            plan.sections.map((section: ScheduleSection, index: number) => {
+              // Format start_time: ensure it's in HH:MM:SS format
+              let timeStr = section.start_time.trim();
+
+              // Parse and normalize time format
+              const timeParts = timeStr.split(':');
+              const hours = parseInt(timeParts[0] || '0', 10);
+              const minutes = parseInt(timeParts[1] || '0', 10);
+              const seconds = parseInt(timeParts[2] || '0', 10);
+
+              // Ensure 2-digit format
+              const hoursStr = String(hours).padStart(2, '0');
+              const minutesStr = String(minutes).padStart(2, '0');
+              const secondsStr = String(seconds).padStart(2, '0');
+
+              // Format for FullCalendar (HH:MM:SS)
+              timeStr = `${hoursStr}:${minutesStr}:${secondsStr}`;
+
+              // Format time for display (HH:MM)
+              const displayTime = `${hoursStr}:${minutesStr}`;
+
+              // Combine date and time for FullCalendar (ISO format: YYYY-MM-DDTHH:MM:SS)
+              const startDateTime = `${section.date}T${timeStr}`;
+
+              return {
+                id: `plan-${plan.plan_id}-section-${index}`,
+                title: section.title,
+                start: startDateTime,
+                type: "training" as const, // Default to training type
+                subtitle: displayTime,
+              };
+            })
+          );
+
+          setEvents(mappedEvents);
+        } else {
+          setEvents([]);
+        }
+      } catch (error) {
+        setEvents([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSchedules();
+  }, []);
 
   const toggleEventType = (type: EventType) => {
     setIsAllSelected(false);
@@ -106,7 +166,7 @@ export default function TrainingCalendar({
 
       return matchesType && matchesSearch;
     });
-  }, [activeTypes, isAllSelected, searchQuery]);
+  }, [events, activeTypes, isAllSelected, searchQuery]);
 
   const getApi = () => calendarRef.current?.getApi();
 
@@ -138,7 +198,6 @@ export default function TrainingCalendar({
         }`}
       >
         <div className="font-semibold text-sm leading-tight">
-          {arg.timeText && <span>{arg.timeText} </span>}
           {arg.event.title}
         </div>
 
@@ -226,17 +285,34 @@ export default function TrainingCalendar({
       </div>
 
       {/* ===== Calendar ===== */}
-      <FullCalendar
-        ref={calendarRef}
-        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-        initialView="dayGridMonth"
-        headerToolbar={false}
-        events={filteredEvents}
-        dateClick={handleDateClick}
-        eventContent={renderEventContent}
-        datesSet={handleDatesSet}
-        height="auto"
-      />
+      {loading ? (
+        <div className="flex items-center justify-center h-96">
+          <p className="text-gray-500">Loading schedules...</p>
+        </div>
+      ) : (
+        <FullCalendar
+          ref={calendarRef}
+          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+          initialView="dayGridMonth"
+          headerToolbar={false}
+          events={filteredEvents}
+          dateClick={handleDateClick}
+          eventContent={renderEventContent}
+          datesSet={handleDatesSet}
+          height="auto"
+          timeZone="local"
+          slotLabelFormat={{
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          }}
+          eventTimeFormat={{
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          }}
+        />
+      )}
 
       <EventModal open={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </>

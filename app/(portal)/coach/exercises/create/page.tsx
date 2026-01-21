@@ -107,15 +107,48 @@ export default function CreateExercisePage() {
         // authFetch throws for non-2xx with err.payload available
         const status = err?.status ?? 500;
         const payload = err?.payload ?? null;
+
+        // Handle validation errors
         if (payload && payload.errors && typeof payload.errors === "object") {
           setErrors(payload.errors as Record<string, string[]>);
-          const msgs = Object.values(payload.errors).flat().filter(Boolean) as string[];
-          const combined = msgs.join(" \u2022 ");
-          setMessage(payload.message || "Validation error");
-          showToast("error", combined || payload.message || `Save failed (${status})`);
+
+          // Collect all error messages from the errors object
+          const errorMessages: string[] = [];
+          Object.entries(payload.errors).forEach(([key, value]) => {
+            if (Array.isArray(value)) {
+              value.forEach((msg) => {
+                if (msg && typeof msg === "string") {
+                  errorMessages.push(msg);
+                }
+              });
+            } else if (typeof value === "string") {
+              errorMessages.push(value);
+            }
+          });
+
+          // Remove duplicate messages
+          const uniqueMessages = Array.from(new Set(errorMessages));
+
+          // Create a user-friendly message
+          const mainMessage = payload.message || "Validation error";
+          let toastMessage = mainMessage;
+
+          if (uniqueMessages.length > 0) {
+            // If more than 2 messages, show on separate lines, otherwise join with comma
+            if (uniqueMessages.length > 2) {
+              toastMessage = `${mainMessage}:\n${uniqueMessages.join("\n")}`;
+            } else {
+              toastMessage = `${mainMessage}: ${uniqueMessages.join(", ")}`;
+            }
+          }
+
+          setMessage(mainMessage);
+          showToast("error", toastMessage);
         } else {
-          setMessage(payload?.message || `Save failed (${status})`);
-          showToast("error", payload?.message || `Save failed (${status})`);
+          // Handle non-validation errors
+          const errorMessage = payload?.message || `Save failed (${status})`;
+          setMessage(errorMessage);
+          showToast("error", errorMessage);
         }
         return;
       }
@@ -657,6 +690,7 @@ export default function CreateExercisePage() {
           className={`fixed right-6 bottom-6 z-50 max-w-sm text-sm ${
             toast.type === "success" ? "bg-emerald-600" : "bg-rose-600"
           } text-white px-4 py-3 rounded shadow-lg`}
+          style={{ whiteSpace: "pre-line" }}
         >
           {toast.message}
         </div>

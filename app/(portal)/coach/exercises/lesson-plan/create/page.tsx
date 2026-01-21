@@ -21,7 +21,7 @@ export default function CreateLessonPlanPage() {
   const [asideSearch, setAsideSearch] = useState<string>("");
   const [planName, setPlanName] = useState<string>("");
   const [startDate, setStartDate] = useState<string>(new Date().toISOString().slice(0, 10)); // Default to today
-  const [endDate, setEndDate] = useState<string>(new Date(new Date().getTime() + 1 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)); // Default to 7 days from today
+  const [endDate, setEndDate] = useState<string>(new Date().toISOString().slice(0, 10)); // Default to 7 days from today
   const [targetOutcomes, setTargetOutcomes] = useState<string[]>(['Conditioning', 'Technical', 'Rehab', 'Strength']); // Default to Conditioning, Technical, Rehab, and Strength
   const [description, setDescription] = useState<string>("");
   // small toast system (local to this page)
@@ -181,6 +181,12 @@ export default function CreateLessonPlanPage() {
   // per-date start time mapping (HH:MM)
   const [startTimes, setStartTimes] = useState<Record<string, string>>({});
 
+  // Helper function to get current time in HH:MM format for input type="time"
+  const getCurrentTimeString = () => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  };
+
   const findDrillById = (id: string | number) => drills.find((d) => String(d.id) === String(id));
 
   const onDragStart = (e: React.DragEvent, id: string | number) => {
@@ -240,9 +246,12 @@ export default function CreateLessonPlanPage() {
 
     const sectionsPayload = targetDates.map((d) => {
       const s = sectionsByDate[d] || sections; // use per-date if present, otherwise template
+      // Default start_time to current time if not set (format: HH:MM)
+      const now = new Date();
+      const defaultStartTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       return {
         date: d,
-        start_time: startTimes[d] || null,
+        start_time: startTimes[d] || defaultStartTime,
         steps: [
           { step: "warm-up", exercise_ids: (s["warm-up"] || []).map((it) => it.id) },
           { step: "main-workout", exercise_ids: (s["main-workout"] || []).map((it) => it.id) },
@@ -295,27 +304,45 @@ export default function CreateLessonPlanPage() {
       const json = await res.json();
       if (!res.ok) {
         console.error('Failed to create plan', json);
-        // Build a detailed validation message when available
-        const title = json?.message || 'Failed to create plan';
-        const details: string[] = [];
-        // If the response contains a nested `errors` object, prefer that
-        const errorsSource = json?.errors && typeof json.errors === 'object' ? json.errors : json;
-        Object.keys(errorsSource || {}).forEach((k) => {
-          if (k === 'message' || k === 'success' || k === 'data') return;
-          const v = (errorsSource as any)[k];
-          if (Array.isArray(v)) details.push(`${k}: ${v.join('; ')}`);
-          else if (typeof v === 'string') details.push(`${k}: ${v}`);
-          else if (typeof v === 'object') {
-            try {
-              // try to stringify small objects
-              details.push(`${k}: ${JSON.stringify(v)}`);
-            } catch (e) {
-              // ignore
+
+        // Handle validation errors
+        const mainMessage = json?.message || 'Failed to create plan';
+
+        if (json?.errors && typeof json.errors === 'object') {
+          // Collect all error messages from the errors object
+          const errorMessages: string[] = [];
+          Object.entries(json.errors).forEach(([_key, value]) => {
+            if (Array.isArray(value)) {
+              value.forEach((msg) => {
+                if (msg && typeof msg === 'string') {
+                  errorMessages.push(msg);
+                }
+              });
+            } else if (typeof value === 'string') {
+              errorMessages.push(value);
+            }
+          });
+
+          // Remove duplicate messages
+          const uniqueMessages = Array.from(new Set(errorMessages));
+
+          // Create a user-friendly message
+          let toastMessage = mainMessage;
+
+          if (uniqueMessages.length > 0) {
+            // If more than 2 messages, show on separate lines, otherwise join with comma
+            if (uniqueMessages.length > 2) {
+              toastMessage = `${mainMessage}:\n${uniqueMessages.join('\n')}`;
+            } else {
+              toastMessage = `${mainMessage}: ${uniqueMessages.join(', ')}`;
             }
           }
-        });
-        const msg = details.length > 0 ? `${title} — ${details.join('\n')}` : `${title}`;
-        showToast('error', msg);
+
+          showToast('error', toastMessage);
+        } else {
+          // Handle non-validation errors
+          showToast('error', mainMessage);
+        }
         return;
       }
 
@@ -390,7 +417,7 @@ export default function CreateLessonPlanPage() {
         setStartTimes((cur) => {
           const out = { ...cur };
           isoDates.forEach((d) => {
-            if (!out[d]) out[d] = '10:30';
+            if (!out[d]) out[d] = getCurrentTimeString();
           });
           return out;
         });
@@ -401,7 +428,7 @@ export default function CreateLessonPlanPage() {
   const ensureDateInitialized = (iso: string) => {
     if (!iso) return;
     setSectionsByDate((cur) => (cur[iso] ? cur : { ...cur, [iso]: { "warm-up": Array.from(sections["warm-up"] || []), "main-workout": Array.from(sections["main-workout"] || []), "cool-down": Array.from(sections["cool-down"] || []) } }));
-    setStartTimes((cur) => (cur[iso] ? cur : { ...cur, [iso]: '10:30' }));
+    setStartTimes((cur) => (cur[iso] ? cur : { ...cur, [iso]: getCurrentTimeString() }));
   };
 
   // derive which sections to render: per-active-date if set, otherwise the template `sections`
@@ -487,8 +514,8 @@ export default function CreateLessonPlanPage() {
                 onChange={(e) => setDescription(e.target.value)}
               />
             </div>
-            
-            
+
+
           </div>
         )}
 
@@ -496,7 +523,7 @@ export default function CreateLessonPlanPage() {
         {step === 2 && (
           <div>
             {/* Header card */}
-       
+
 
             <div className="grid grid-cols-12 gap-6">
               <div className="col-span-7">
@@ -532,7 +559,7 @@ export default function CreateLessonPlanPage() {
                       <input
                         type="time"
                         disabled={!activeDate}
-                        value={activeDate ? (startTimes[activeDate] || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })) : new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} // Default now
+                        value={activeDate ? (startTimes[activeDate] || getCurrentTimeString()) : getCurrentTimeString()}
                         onChange={(e) => {
                           if (!activeDate) return;
                           const v = e.target.value;
@@ -902,7 +929,12 @@ export default function CreateLessonPlanPage() {
         </div>
       )}
       {toast && (
-        <div className={`fixed right-6 bottom-6 z-50 max-w-sm text-sm ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'} text-white px-4 py-3 rounded shadow-lg whitespace-pre-wrap`}>
+        <div
+          className={`fixed right-6 bottom-6 z-50 max-w-sm text-sm ${
+            toast.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'
+          } text-white px-4 py-3 rounded shadow-lg`}
+          style={{ whiteSpace: 'pre-line' }}
+        >
           {toast.message}
         </div>
       )}
