@@ -205,7 +205,7 @@ export default function TrainingCalendar({
           EVENT_STYLE[type] ?? "bg-gray-400 text-white"
         }`}
       >
-        <div className="font-semibold text-sm leading-tight">
+        <div className="font-semibold text-sm leading-tight break-words whitespace-normal">
           {arg.event.title}
         </div>
 
