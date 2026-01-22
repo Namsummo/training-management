@@ -67,6 +67,48 @@ function FitnessBadge({ status }: { status: string }) {
     </span>
   );
 }
+
+function AthleteStatusBadge({ status }: { status: string | null }) {
+  if (!status) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2.5 py-1 text-xs text-slate-600">
+        N/A
+      </span>
+    );
+  }
+
+  const statusLower = status.toLowerCase();
+
+  if (statusLower === "available")
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">
+        <span className="size-1.5 rounded-full bg-green-600" />
+        AVAILABLE
+      </span>
+    );
+
+  if (statusLower === "injured")
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">
+        <span className="size-1.5 rounded-full bg-red-600" />
+        INJURED
+      </span>
+    );
+
+  if (statusLower === "inactive")
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
+        <span className="size-1.5 rounded-full bg-slate-600" />
+        INACTIVE
+      </span>
+    );
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2.5 py-1 text-xs text-slate-600">
+      {status.toUpperCase()}
+    </span>
+  );
+}
 const getInitial = (name?: string) => {
   if (!name) return "?";
   return name.trim().charAt(0).toUpperCase();
@@ -193,10 +235,11 @@ export default function CoachAthletesPage() {
         <Table className="">
           <TableHeader className="bg-slate-50">
             <TableRow>
-              <TableHead className="w-[30%]">Athlete</TableHead>
-              <TableHead className="w-[25%]">Position</TableHead>
-              <TableHead className="w-[25%]">Fitness Status</TableHead>
-              <TableHead className="w-[15%]">AI Perf. Score</TableHead>
+              <TableHead className="w-[25%]">Athlete</TableHead>
+              <TableHead className="w-[20%]">Position</TableHead>
+              <TableHead className="w-[20%]">Fitness Status</TableHead>
+              <TableHead className="w-[20%]">Athlete Status</TableHead>
+              <TableHead className="w-[10%]">AI Perf. Score</TableHead>
               <TableHead className="w-[5%] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -236,6 +279,11 @@ export default function CoachAthletesPage() {
                   <FitnessBadge status={u.fitness_status ?? "UNKNOWN"} />
                 </TableCell>
 
+                {/* Athlete Status */}
+                <TableCell>
+                  <AthleteStatusBadge status={u.athlete_status} />
+                </TableCell>
+
                 {/* AI Score */}
                 <TableCell>
                   <PerformanceScore score={75} />
@@ -254,7 +302,7 @@ export default function CoachAthletesPage() {
           </TableBody>
           <TableFooter>
             <TableRow>
-              <TableCell colSpan={5}>
+              <TableCell colSpan={6}>
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-slate-500">
                     Showing <strong>{from}</strong> to <strong>{to}</strong> of{" "}
