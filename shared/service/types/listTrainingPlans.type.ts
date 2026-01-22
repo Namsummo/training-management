@@ -73,3 +73,17 @@ export interface ListTrainingPlansRequest {
 }
 
 export type ListTrainingPlansResponse = ApiResponse<PaginatedData>;
+
+export interface UpdatePlanRequest {
+  name?: string;
+  description?: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  target_outcome?: string[];
+  status?: PlanStatus;
+  sections?: any[];
+  user_ids?: number[];
+  is_synced?: boolean;
+}
+
+export type UpdatePlanResponse = ApiResponse<Plan>;
