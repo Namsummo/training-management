@@ -217,10 +217,9 @@ export default function CoachAthletesPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Any Status</SelectItem>
-                <SelectItem value={AthleteStatus.AVAILABLE}>
-                  Available
-                </SelectItem>
+                <SelectItem value={AthleteStatus.ACTIVE}>Available</SelectItem>
                 <SelectItem value={AthleteStatus.INJURED}>Injured</SelectItem>
+                <SelectItem value={AthleteStatus.INACTIVE}>Inactive</SelectItem>
               </SelectContent>
             </Select>
           </div>

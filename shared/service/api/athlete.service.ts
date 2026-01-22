@@ -50,8 +50,14 @@ export const createAthleteService = async (
   if (payload.position_relevance) {
     formData.append("position_relevance", payload.position_relevance);
   }
-  if (payload.fitness_status !== null) {
+  if (payload.fitness_status !== null && payload.fitness_status !== undefined) {
     formData.append("fitness_status", payload.fitness_status);
+  }
+  if (payload.athlete_status !== null && payload.athlete_status !== undefined) {
+    formData.append("athlete_status", payload.athlete_status);
+  }
+  if (payload.jersey_number !== null && payload.jersey_number !== undefined) {
+    formData.append("jersey_number", String(payload.jersey_number));
   }
   // Handle avatar file - only append if it's a File instance
   if (payload.avatar instanceof File) {
@@ -145,7 +151,7 @@ export const updateAvatarService = async (
       headers: {
         "Content-Type": "multipart/form-data",
       },
-    }
+    },
   );
   return data;
 };

@@ -20,7 +20,7 @@ export interface CreateAthleteRequest {
   height: number | null;
   weight: number | null;
   position_relevance: string | null;
-  fitness_status: FitnessStatus | null;
+  fitness_status?: FitnessStatus | null;
   avatar?: File | null;
   athlete_status: AthleteStatus | null;
   jersey_number: number | null;

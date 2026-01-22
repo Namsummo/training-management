@@ -7,7 +7,6 @@ import { AppButton } from "@/shared/components/ui/button/AppButton";
 import { ArrowLeft } from "lucide-react";
 import { useUpdateAthleteMutation } from "@/shared/service/hooks/mutations/updateAthlete.mutation";
 import { useUpdateAvatarMutation } from "@/shared/service/hooks/mutations/updateAvatar.mutation";
-import z from "zod";
 import { AppInput } from "@/shared/components/ui/input/AppInput";
 import {
   Form,
@@ -33,47 +32,10 @@ import {
 import { usePositionEnumQuery } from "@/shared/service/hooks/queries/usePositionEnum.query";
 import { AthleteStatus } from "@/shared/service/types/addAthlete.type";
 import { useAthleteDetailQuery } from "@/shared/service/hooks/queries/useAthleteDetail.query";
-
-// Schema for updating athlete - password is optional
-const updateAthleteSchema = z
-  .object({
-    name: z.string().min(1, "Name is required"),
-    email: z.string().email("Invalid email"),
-    password: z.string().min(8, "Password must be at least 8 characters").optional().or(z.literal("")),
-    password_confirmation: z.string().optional().or(z.literal("")),
-    birthday: z.string().nullable(),
-    height: z
-      .number()
-      .min(50, "Height too small")
-      .max(300, "Height too large")
-      .nullable(),
-    weight: z
-      .number()
-      .min(20, "Weight too small")
-      .max(300, "Weight too large")
-      .nullable(),
-    position_relevance: z.string().nullable(),
-    fitness_status: z
-      .enum([AthleteStatus.AVAILABLE, AthleteStatus.INJURED, AthleteStatus.INACTIVE])
-      .nullable(),
-    jersey_number: z.number().min(0, "").nullable(),
-    avatar: (typeof File !== "undefined" ? z.instanceof(File) : z.any()).nullable().optional(),
-  })
-  .refine(
-    (data) => {
-      // Only validate password match if password is provided
-      if (data.password && data.password.length > 0) {
-        return data.password === data.password_confirmation;
-      }
-      return true;
-    },
-    {
-      message: "Passwords do not match",
-      path: ["password_confirmation"],
-    }
-  );
-
-type UpdateAthleteFormValues = z.infer<typeof updateAthleteSchema>;
+import {
+  UpdateAthleteFormValues,
+  updateAthleteSchema,
+} from "./contants/updateSchema.type";
 
 export default function EditAthletePage() {
   const router = useRouter();
@@ -82,12 +44,17 @@ export default function EditAthletePage() {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef<string | null>(null);
-  const { data: positions = [], isLoading: positionsLoading } = usePositionEnumQuery();
-  const { mutate: updateAthleteMutation, isPending: isUpdating } = useUpdateAthleteMutation();
+  const { data: positions = [], isLoading: positionsLoading } =
+    usePositionEnumQuery();
+  const { mutate: updateAthleteMutation, isPending: isUpdating } =
+    useUpdateAthleteMutation();
   const { mutate: updateAvatarMutation } = useUpdateAvatarMutation();
-  const { data: athleteData, isLoading: isLoadingAthlete } = useAthleteDetailQuery(athleteId);
+  const { data: athleteData, isLoading: isLoadingAthlete } =
+    useAthleteDetailQuery(athleteId);
 
-  const [preview, setPreview] = useState<string | null>(athleteData?.data?.avatar ?? null);
+  const [preview, setPreview] = useState<string | null>(
+    athleteData?.data?.avatar ?? null,
+  );
 
   console.log(preview);
   console.log(athleteData?.data?.avatar);
@@ -103,7 +70,8 @@ export default function EditAthletePage() {
       height: null,
       weight: null,
       position_relevance: null,
-      fitness_status: AthleteStatus.AVAILABLE,
+      athlete_status: AthleteStatus.ACTIVE,
+      // fitness_status: FitnessStatus.AVAILABLE ?? FitnessStatus.INJURED;
       jersey_number: null,
       avatar: null, // Avatar is forced to be a File instance
     },
@@ -138,7 +106,8 @@ export default function EditAthletePage() {
         height: athlete.height ?? null,
         weight: athlete.weight ?? null,
         position_relevance: athlete.position_relevance || null,
-        fitness_status: (athlete.fitness_status as AthleteStatus) || AthleteStatus.AVAILABLE,
+        athlete_status:
+          (athlete.athlete_status as AthleteStatus) || AthleteStatus.ACTIVE,
         jersey_number: athlete.jersey_number ?? null,
         avatar: null,
       });
@@ -163,6 +132,14 @@ export default function EditAthletePage() {
   }, [athleteData, form]);
 
   function handleSave(values: UpdateAthleteFormValues) {
+    // Check if athleteId is valid
+    if (!athleteId || athleteId.trim() === "") {
+      toast.error("Error", {
+        description: "Athlete ID is missing",
+      });
+      return;
+    }
+
     const payload: UpdateAthleteRequest = {
       name: values.name,
       email: values.email,
@@ -170,13 +147,12 @@ export default function EditAthletePage() {
       height: values.height,
       weight: values.weight,
       birthday: values.birthday,
-      fitness_status: values.fitness_status,
-      athlete_status: values.fitness_status,
+      athlete_status: values.athlete_status || AthleteStatus.ACTIVE,
       jersey_number: values.jersey_number,
     };
 
     // Only include password if provided
-    if (values.password && values.password.length > 0) {
+    if (values.password && values.password.trim().length > 0) {
       payload.password = values.password;
       payload.password_confirmation = values.password_confirmation || "";
     }
@@ -192,12 +168,16 @@ export default function EditAthletePage() {
           });
           router.push(`/coach/athletes/${athleteId}`);
         },
-        onError: (error: Error & { response?: { data?: { message?: string } } }) => {
+        onError: (
+          error: Error & { response?: { data?: { message?: string } } },
+        ) => {
           toast.error("Error", {
-            description: error?.response?.data?.message || "Failed to update athlete profile",
+            description:
+              error?.response?.data?.message ||
+              "Failed to update athlete profile",
           });
         },
-      }
+      },
     );
   }
 
@@ -246,7 +226,9 @@ export default function EditAthletePage() {
                         <label
                           htmlFor="avatar-upload"
                           className={`relative w-28 h-28 rounded-full bg-slate-100 flex items-center justify-center cursor-pointer overflow-hidden group ${
-                            isUploadingAvatar ? "opacity-50 cursor-not-allowed" : ""
+                            isUploadingAvatar
+                              ? "opacity-50 cursor-not-allowed"
+                              : ""
                           }`}
                         >
                           {preview ? (
@@ -265,7 +247,9 @@ export default function EditAthletePage() {
                           {/* Loading overlay */}
                           {isUploadingAvatar && (
                             <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                              <div className="text-white text-xs">Uploading...</div>
+                              <div className="text-white text-xs">
+                                Uploading...
+                              </div>
                             </div>
                           )}
 
@@ -291,7 +275,8 @@ export default function EditAthletePage() {
                             // Validate file size (max 2MB)
                             if (file.size > 2 * 1024 * 1024) {
                               toast.error("File too large", {
-                                description: "Please select an image smaller than 2MB",
+                                description:
+                                  "Please select an image smaller than 2MB",
                               });
                               if (fileInputRef.current) {
                                 fileInputRef.current.value = "";
@@ -311,7 +296,10 @@ export default function EditAthletePage() {
                             }
 
                             // Cleanup previous blob URL if exists
-                            if (previewUrlRef.current && previewUrlRef.current.startsWith("blob:")) {
+                            if (
+                              previewUrlRef.current &&
+                              previewUrlRef.current.startsWith("blob:")
+                            ) {
                               URL.revokeObjectURL(previewUrlRef.current);
                             }
 
@@ -331,14 +319,21 @@ export default function EditAthletePage() {
                                 onSuccess: (res) => {
                                   setIsUploadingAvatar(false);
                                   toast.success("Success", {
-                                    description: res.message || "Avatar updated successfully",
+                                    description:
+                                      res.message ||
+                                      "Avatar updated successfully",
                                   });
 
                                   // Update preview with server URL if available
                                   if (res.data?.avatar) {
                                     // Cleanup blob URL
-                                    if (previewUrlRef.current && previewUrlRef.current.startsWith("blob:")) {
-                                      URL.revokeObjectURL(previewUrlRef.current);
+                                    if (
+                                      previewUrlRef.current &&
+                                      previewUrlRef.current.startsWith("blob:")
+                                    ) {
+                                      URL.revokeObjectURL(
+                                        previewUrlRef.current,
+                                      );
                                     }
                                     setPreview(res.data.avatar);
                                     previewUrlRef.current = res.data.avatar;
@@ -351,19 +346,29 @@ export default function EditAthletePage() {
                                   // Clear form field since avatar is already uploaded
                                   field.onChange(null);
                                 },
-                                onError: (error: Error & { response?: { data?: { message?: string } } }) => {
+                                onError: (
+                                  error: Error & {
+                                    response?: { data?: { message?: string } };
+                                  },
+                                ) => {
                                   setIsUploadingAvatar(false);
                                   toast.error("Error", {
-                                    description: error?.response?.data?.message || "Failed to upload avatar",
+                                    description:
+                                      error?.response?.data?.message ||
+                                      "Failed to upload avatar",
                                   });
                                   // Reset preview and file input on error
-                                  if (previewUrlRef.current && previewUrlRef.current.startsWith("blob:")) {
+                                  if (
+                                    previewUrlRef.current &&
+                                    previewUrlRef.current.startsWith("blob:")
+                                  ) {
                                     URL.revokeObjectURL(previewUrlRef.current);
                                   }
                                   // Restore previous preview if available
                                   if (athleteData?.data?.avatar) {
                                     setPreview(athleteData.data.avatar);
-                                    previewUrlRef.current = athleteData.data.avatar;
+                                    previewUrlRef.current =
+                                      athleteData.data.avatar;
                                   } else {
                                     setPreview(null);
                                     previewUrlRef.current = null;
@@ -373,7 +378,7 @@ export default function EditAthletePage() {
                                   }
                                   field.onChange(null);
                                 },
-                              }
+                              },
                             );
                           }}
                         />
@@ -526,7 +531,7 @@ export default function EditAthletePage() {
                             onChange={(event) => {
                               const value = event.target.value;
                               field.onChange(
-                                value === "" ? null : Number(value)
+                                value === "" ? null : Number(value),
                               );
                             }}
                           />
@@ -551,7 +556,7 @@ export default function EditAthletePage() {
                             onChange={(event) => {
                               const value = event.target.value;
                               field.onChange(
-                                value === "" ? null : Number(value)
+                                value === "" ? null : Number(value),
                               );
                             }}
                           />
@@ -607,7 +612,7 @@ export default function EditAthletePage() {
                 />
                 <FormField
                   control={form.control}
-                  name="fitness_status"
+                  name="athlete_status"
                   render={({ field }) => (
                     <div className="col-span-2">
                       <label className="text-xs text-slate-500">
@@ -617,11 +622,9 @@ export default function EditAthletePage() {
                       <div className="mt-2 flex gap-2">
                         <AppButton
                           type="button"
-                          onClick={() =>
-                            field.onChange(AthleteStatus.AVAILABLE)
-                          }
+                          onClick={() => field.onChange(AthleteStatus.ACTIVE)}
                           className={`px-4 py-2 rounded-full border text-[#5954E6] transition ${
-                            field.value === AthleteStatus.AVAILABLE
+                            field.value === AthleteStatus.ACTIVE
                               ? "bg-white border-[#5954E6]"
                               : "bg-slate-50"
                           }`}
@@ -671,7 +674,10 @@ export default function EditAthletePage() {
                   Cancel
                 </Button>
               </Link>
-              <AppButton type="submit" disabled={isUpdating || isUploadingAvatar}>
+              <AppButton
+                type="submit"
+                disabled={isUpdating || isUploadingAvatar}
+              >
                 {isUpdating ? "Saving..." : "Save Changes"}
               </AppButton>
             </div>

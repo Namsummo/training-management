@@ -1,5 +1,5 @@
 import { ApiResponse } from "@/shared/lib/api";
-import { AthleteStatus } from "./addAthlete.type";
+import { AthleteStatus, FitnessStatus } from "./addAthlete.type";
 
 export interface UpdateAthleteRequest {
   name?: string;
@@ -11,7 +11,7 @@ export interface UpdateAthleteRequest {
   height?: number | null;
   weight?: number | null;
   position_relevance?: string | null;
-  fitness_status?: AthleteStatus | null;
+  fitness_status?: FitnessStatus | null;
   avatar?: File | null;
   athlete_status?: AthleteStatus | null;
   jersey_number?: number | null;
