@@ -18,7 +18,10 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
-import { CreateAthleteRequest } from "@/shared/service/types/addAthlete.type";
+import {
+  CreateAthleteRequest,
+  FitnessStatus,
+} from "@/shared/service/types/addAthlete.type";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -52,7 +55,8 @@ export default function AddAthletePage() {
       height: null,
       weight: null,
       position_relevance: null,
-      fitness_status: AthleteStatus.AVAILABLE,
+      fitness_status: FitnessStatus.AVAILABLE,
+      athlete_status: AthleteStatus.ACTIVE,
       jersey_number: 0,
       avatar: null,
     },
@@ -70,7 +74,7 @@ export default function AddAthletePage() {
       birthday: values.birthday,
       avatar: values.avatar,
       fitness_status: values.fitness_status,
-      athlete_status: values.fitness_status,
+      athlete_status: values.athlete_status ?? AthleteStatus.ACTIVE,
       jersey_number: values.jersey_number,
     };
     athleteMutation(payload, {
@@ -385,7 +389,7 @@ export default function AddAthletePage() {
                 />
                 <FormField
                   control={form.control}
-                  name="fitness_status"
+                  name="athlete_status"
                   render={({ field }) => (
                     <div className="col-span-2">
                       <label className="text-xs text-slate-500">
@@ -395,10 +399,8 @@ export default function AddAthletePage() {
                       <div className="mt-2 flex gap-2">
                         <AppButton
                           type="button"
-                          onClick={() =>
-                            field.onChange(AthleteStatus.AVAILABLE)
-                          }
-                          className={`px-4 py-2 rounded-full border transition ${field.value === AthleteStatus.AVAILABLE ? "bg-white text-[#5954E6] border-[#5954E6]" : "bg-slate-50"}`}
+                          onClick={() => field.onChange(AthleteStatus.ACTIVE)}
+                          className={`px-4 py-2 rounded-full border transition ${field.value === AthleteStatus.ACTIVE ? "bg-white text-[#5954E6] border-[#5954E6]" : "bg-slate-50 text-black "}`}
                         >
                           Active
                         </AppButton>
@@ -406,9 +408,16 @@ export default function AddAthletePage() {
                         <AppButton
                           type="button"
                           onClick={() => field.onChange(AthleteStatus.INJURED)}
-                          className={`px-4 py-2 rounded-full border transition ${field.value === AthleteStatus.INJURED ? "bg-white text-[#5954E6] border-[#5954E6]" : "bg-slate-50"}`}
+                          className={`px-4 py-2 rounded-full border transition ${field.value === AthleteStatus.INJURED ? "bg-white text-[#5954E6] border-[#5954E6]" : "bg-slate-50 text-black"}`}
                         >
                           Injured
+                        </AppButton>
+                        <AppButton
+                          type="button"
+                          onClick={() => field.onChange(AthleteStatus.INACTIVE)}
+                          className={`px-4 py-2 rounded-full border transition ${field.value === AthleteStatus.INACTIVE ? "bg-white text-[#5954E6] border-[#5954E6]" : "bg-slate-50 text-black"}`}
+                        >
+                          Inactive
                         </AppButton>
                       </div>
 

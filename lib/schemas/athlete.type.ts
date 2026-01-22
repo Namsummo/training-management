@@ -1,4 +1,7 @@
-import { AthleteStatus } from "@/shared/service/types/addAthlete.type";
+import {
+  AthleteStatus,
+  FitnessStatus,
+} from "@/shared/service/types/addAthlete.type";
 import z from "zod";
 
 export const athleteSchema = z
@@ -20,12 +23,21 @@ export const athleteSchema = z
       .nullable(),
     position_relevance: z.string().nullable(),
     fitness_status: z
-      .enum([AthleteStatus.AVAILABLE, AthleteStatus.INJURED])
+      .enum([FitnessStatus.AVAILABLE, FitnessStatus.INJURED])
+      .nullable(),
+    athlete_status: z
+      .enum([
+        AthleteStatus.ACTIVE,
+        AthleteStatus.INJURED,
+        AthleteStatus.INACTIVE,
+      ])
       .nullable(),
     jersey_number: z.number().min(0, ""),
     // `File` is a browser global and is undefined during server-side builds.
     // Guard with `typeof File` so the schema doesn't throw when evaluated on the server.
-    avatar: (typeof File !== "undefined" ? z.instanceof(File) : z.any()).nullable().optional(),
+    avatar: (typeof File !== "undefined" ? z.instanceof(File) : z.any())
+      .nullable()
+      .optional(),
   })
   .refine((data) => data.password === data.password_confirmation, {
     message: "Passwords do not match",

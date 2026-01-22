@@ -1,9 +1,13 @@
 import { ApiResponse } from "@/shared/lib/api";
 
 export enum AthleteStatus {
-  AVAILABLE = "available",
+  ACTIVE = "active",
   INJURED = "injured",
   INACTIVE = "inactive",
+}
+export enum FitnessStatus {
+  AVAILABLE = "available",
+  INJURED = "injured",
 }
 
 export interface CreateAthleteRequest {
@@ -16,7 +20,7 @@ export interface CreateAthleteRequest {
   height: number | null;
   weight: number | null;
   position_relevance: string | null;
-  fitness_status: AthleteStatus | null;
+  fitness_status: FitnessStatus | null;
   avatar?: File | null;
   athlete_status: AthleteStatus | null;
   jersey_number: number | null;
