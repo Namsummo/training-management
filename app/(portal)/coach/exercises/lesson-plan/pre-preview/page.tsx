@@ -1,3 +1,5 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -20,6 +22,7 @@ import {
   Send,
   MoreVertical,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { ATHLETES } from "./athlete.type";
 import { StatusBadge } from "./StatusBadge";
 
@@ -74,6 +77,12 @@ const AVAILABILITY_STATS: AvailabilityStat[] = [
 ];
 
 export default function Page() {
+  const router = useRouter();
+
+  const handleStartClick = () => {
+    router.push("./pre-team");
+  };
+
   return (
     <div className="flex flex-col bg-slate-50">
       {/* ===== Header ===== */}
@@ -223,8 +232,8 @@ export default function Page() {
       </div>
 
       {/*  */}
-      <div className="justify-end">
-        <AppButton>Start</AppButton>
+      <div className="flex justify-end px-6 pb-6">
+        <AppButton onClick={handleStartClick}>Start</AppButton>
       </div>
     </div>
   );

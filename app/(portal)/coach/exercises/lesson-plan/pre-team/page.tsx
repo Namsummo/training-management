@@ -31,6 +31,7 @@ import {
 } from "../pre-preview/athlete.type";
 import { AppButton } from "@/shared/components/ui/button/AppButton";
 import { Textarea } from "@/components/ui/textarea";
+import { useRouter } from "next/navigation";
 
 // Status configuration
 const STATUS_CONFIG = {
@@ -253,6 +254,7 @@ function DistributionCharts() {
 
 // Main Page Component
 export default function PreTeamPage() {
+  const router = useRouter();
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between rounded-xl border bg-white px-5 py-4">
@@ -274,12 +276,16 @@ export default function PreTeamPage() {
 
         {/* Right */}
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="lg" className="gap-2">
             <Share2 size={14} />
             Export PDF
           </Button>
 
-          <AppButton size="sm" className="gap-2">
+          <AppButton
+            size="lg"
+            className="gap-2"
+            onClick={() => router.push("./evaluation")}
+          >
             <Plus size={14} />
             Finish
           </AppButton>
