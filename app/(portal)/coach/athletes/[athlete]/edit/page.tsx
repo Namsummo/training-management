@@ -6,6 +6,7 @@ import { useRouter, useParams } from "next/navigation";
 import { AppButton } from "@/shared/components/ui/button/AppButton";
 import { ArrowLeft } from "lucide-react";
 import { useUpdateAthleteMutation } from "@/shared/service/hooks/mutations/updateAthlete.mutation";
+import { useUpdateAvatarMutation } from "@/shared/service/hooks/mutations/updateAvatar.mutation";
 import z from "zod";
 import { AppInput } from "@/shared/components/ui/input/AppInput";
 import {
@@ -78,12 +79,18 @@ export default function EditAthletePage() {
   const router = useRouter();
   const params = useParams() as { athlete?: string };
   const athleteId = params?.athlete ?? "";
-  const [preview, setPreview] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef<string | null>(null);
   const { data: positions = [], isLoading: positionsLoading } = usePositionEnumQuery();
   const { mutate: updateAthleteMutation, isPending: isUpdating } = useUpdateAthleteMutation();
+  const { mutate: updateAvatarMutation } = useUpdateAvatarMutation();
   const { data: athleteData, isLoading: isLoadingAthlete } = useAthleteDetailQuery(athleteId);
+
+  const [preview, setPreview] = useState<string | null>(athleteData?.data?.avatar ?? null);
+
+  console.log(preview);
+  console.log(athleteData?.data?.avatar);
 
   const form = useForm<UpdateAthleteFormValues>({
     resolver: zodResolver(updateAthleteSchema),
@@ -98,7 +105,7 @@ export default function EditAthletePage() {
       position_relevance: null,
       fitness_status: AthleteStatus.AVAILABLE,
       jersey_number: null,
-      avatar: null,
+      avatar: null, // Avatar is forced to be a File instance
     },
   });
 
@@ -174,11 +181,8 @@ export default function EditAthletePage() {
       payload.password_confirmation = values.password_confirmation || "";
     }
 
-    // Only include avatar if a new file was selected
-    if (values.avatar instanceof File) {
-      payload.avatar = values.avatar;
-    }
-
+    // Avatar is already uploaded on file change, so we don't need to upload it again
+    // Update athlete profile
     updateAthleteMutation(
       { userId: athleteId, payload },
       {
@@ -241,7 +245,9 @@ export default function EditAthletePage() {
                       <div className="flex flex-col items-center gap-4 py-6 border-b">
                         <label
                           htmlFor="avatar-upload"
-                          className="relative w-28 h-28 rounded-full bg-slate-100 flex items-center justify-center cursor-pointer overflow-hidden group"
+                          className={`relative w-28 h-28 rounded-full bg-slate-100 flex items-center justify-center cursor-pointer overflow-hidden group ${
+                            isUploadingAvatar ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
                         >
                           {preview ? (
                             <Image
@@ -256,10 +262,19 @@ export default function EditAthletePage() {
                             </span>
                           )}
 
+                          {/* Loading overlay */}
+                          {isUploadingAvatar && (
+                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                              <div className="text-white text-xs">Uploading...</div>
+                            </div>
+                          )}
+
                           {/* hover overlay */}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs transition">
-                            Change
-                          </div>
+                          {!isUploadingAvatar && (
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs transition">
+                              Change
+                            </div>
+                          )}
                         </label>
 
                         <Input
@@ -268,6 +283,7 @@ export default function EditAthletePage() {
                           type="file"
                           accept="image/*"
                           hidden
+                          disabled={isUploadingAvatar}
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;
@@ -299,13 +315,66 @@ export default function EditAthletePage() {
                               URL.revokeObjectURL(previewUrlRef.current);
                             }
 
-                            // Create new preview URL
+                            // Create new preview URL immediately for better UX
                             const url = URL.createObjectURL(file);
                             setPreview(url);
                             previewUrlRef.current = url;
 
                             // Set file into form
                             field.onChange(file);
+
+                            // Upload avatar immediately
+                            setIsUploadingAvatar(true);
+                            updateAvatarMutation(
+                              { userId: athleteId, avatarFile: file },
+                              {
+                                onSuccess: (res) => {
+                                  setIsUploadingAvatar(false);
+                                  toast.success("Success", {
+                                    description: res.message || "Avatar updated successfully",
+                                  });
+
+                                  // Update preview with server URL if available
+                                  if (res.data?.avatar) {
+                                    // Cleanup blob URL
+                                    if (previewUrlRef.current && previewUrlRef.current.startsWith("blob:")) {
+                                      URL.revokeObjectURL(previewUrlRef.current);
+                                    }
+                                    setPreview(res.data.avatar);
+                                    previewUrlRef.current = res.data.avatar;
+                                  }
+
+                                  // Clear file input to allow re-uploading same file
+                                  if (fileInputRef.current) {
+                                    fileInputRef.current.value = "";
+                                  }
+                                  // Clear form field since avatar is already uploaded
+                                  field.onChange(null);
+                                },
+                                onError: (error: Error & { response?: { data?: { message?: string } } }) => {
+                                  setIsUploadingAvatar(false);
+                                  toast.error("Error", {
+                                    description: error?.response?.data?.message || "Failed to upload avatar",
+                                  });
+                                  // Reset preview and file input on error
+                                  if (previewUrlRef.current && previewUrlRef.current.startsWith("blob:")) {
+                                    URL.revokeObjectURL(previewUrlRef.current);
+                                  }
+                                  // Restore previous preview if available
+                                  if (athleteData?.data?.avatar) {
+                                    setPreview(athleteData.data.avatar);
+                                    previewUrlRef.current = athleteData.data.avatar;
+                                  } else {
+                                    setPreview(null);
+                                    previewUrlRef.current = null;
+                                  }
+                                  if (fileInputRef.current) {
+                                    fileInputRef.current.value = "";
+                                  }
+                                  field.onChange(null);
+                                },
+                              }
+                            );
                           }}
                         />
 
@@ -602,7 +671,7 @@ export default function EditAthletePage() {
                   Cancel
                 </Button>
               </Link>
-              <AppButton type="submit" disabled={isUpdating}>
+              <AppButton type="submit" disabled={isUpdating || isUploadingAvatar}>
                 {isUpdating ? "Saving..." : "Save Changes"}
               </AppButton>
             </div>

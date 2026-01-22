@@ -53,7 +53,12 @@ export const createAthleteService = async (
   if (payload.fitness_status !== null) {
     formData.append("fitness_status", payload.fitness_status);
   }
-  if (payload.avatar) {
+  // Handle avatar file - only append if it's a File instance
+  if (payload.avatar instanceof File) {
+    // Verify it's an image file before appending
+    if (!payload.avatar.type || !payload.avatar.type.startsWith("image/")) {
+      throw new Error("Avatar must be an image file");
+    }
     formData.append("avatar", payload.avatar);
   }
   const { data } = await api.post<CreateAthleteResponse>("/users", formData, {
@@ -113,18 +118,34 @@ export const updateAthleteService = async (
   if (payload.jersey_number !== null && payload.jersey_number !== undefined) {
     formData.append("jersey_number", String(payload.jersey_number));
   }
-  if (payload.avatar) {
-    formData.append("avatar", payload.avatar);
-  }
-
   const { data } = await api.put<UpdateAthleteResponse>(
     `/users/${userId}`,
+    formData,
+  );
+  return data;
+};
+
+export const updateAvatarService = async (
+  userId: string,
+  avatarFile: File,
+): Promise<UpdateAthleteResponse> => {
+  const formData = new FormData();
+
+  // Verify it's an image file before appending
+  if (!avatarFile.type || !avatarFile.type.startsWith("image/")) {
+    throw new Error("Avatar must be an image file");
+  }
+
+  formData.append("avatar", avatarFile);
+
+  const { data } = await api.post<UpdateAthleteResponse>(
+    `/users/${userId}/update-avatar`,
     formData,
     {
       headers: {
         "Content-Type": "multipart/form-data",
       },
-    },
+    }
   );
   return data;
 };
