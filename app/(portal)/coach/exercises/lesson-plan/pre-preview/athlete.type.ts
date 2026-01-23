@@ -109,7 +109,7 @@ export interface FlaggedAthlete {
 
 export const FLAGGED_ATHLETES: FlaggedAthlete[] = [
   {
-    id: "1",
+    id: "73",
     name: "Leon",
     role: "Midfield",
     rpe: 8,
@@ -118,16 +118,16 @@ export const FLAGGED_ATHLETES: FlaggedAthlete[] = [
     status: "high_strain",
   },
   {
-    id: "2",
+    id: "73",
     name: "David Miller",
     role: "Forward",
     rpe: 1,
-    pain: 5,
+    pain: 2,
     area: "Right Ankle",
     status: "exertion_warning",
   },
   {
-    id: "3",
+    id: "73",
     name: "Leo Garcia",
     role: "Defender",
     rpe: 1,

@@ -74,7 +74,6 @@ export function AppSidebar({ title, items, children }: AppSidebarProps) {
     // Treat a parent active when any of its children match the current path (prefix match)
     return item.children.some((child) => pathname.startsWith(child.url));
   };
-
   return (
     <SidebarProvider>
       <Sidebar>

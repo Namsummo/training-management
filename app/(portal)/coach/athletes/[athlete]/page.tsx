@@ -17,13 +17,15 @@ export default function AthleteDetailPage({ params }: Props) {
 
   // Get position label
   const positionLabel = athlete?.position_relevance
-    ? positions.find((p) => p.key === athlete.position_relevance)?.label || athlete.position_relevance
+    ? positions.find((p) => p.key === athlete.position_relevance)?.label ||
+      athlete.position_relevance
     : "N/A";
 
   // Format status
   const getStatusInfo = (status: string | null | undefined) => {
     const statusValue = status || null;
-    if (!statusValue) return { label: "Unknown", className: "bg-slate-50 text-slate-700" };
+    if (!statusValue)
+      return { label: "Unknown", className: "bg-slate-50 text-slate-700" };
     switch (statusValue.toLowerCase()) {
       case "available":
         return { label: "Available", className: "bg-green-50 text-green-700" };
@@ -36,7 +38,9 @@ export default function AthleteDetailPage({ params }: Props) {
     }
   };
 
-  const statusInfo = getStatusInfo(athlete?.fitness_status || athlete?.athlete_status);
+  const statusInfo = getStatusInfo(
+    athlete?.fitness_status || athlete?.athlete_status,
+  );
 
   // Format date
   const formatDate = (dateString: string | null) => {
@@ -46,7 +50,7 @@ export default function AthleteDetailPage({ params }: Props) {
       return date.toLocaleDateString("en-US", {
         year: "numeric",
         month: "short",
-        day: "numeric"
+        day: "numeric",
       });
     } catch {
       return dateString;
@@ -110,14 +114,18 @@ export default function AthleteDetailPage({ params }: Props) {
                 <h1 className="text-2xl font-semibold">{athlete.name}</h1>
                 <div className="text-sm text-slate-500 mt-1">
                   {positionLabel !== "N/A" && `Position: ${positionLabel}`}
-                  {athlete.jersey_number !== null && athlete.jersey_number !== undefined && (
-                    <span>
-                      {positionLabel !== "N/A" ? " • " : ""}Jersey #{athlete.jersey_number}
-                    </span>
-                  )}
+                  {athlete.jersey_number !== null &&
+                    athlete.jersey_number !== undefined && (
+                      <span>
+                        {positionLabel !== "N/A" ? " • " : ""}Jersey #
+                        {athlete.jersey_number}
+                      </span>
+                    )}
                 </div>
                 <div className="flex items-center gap-3 mt-3 text-sm">
-                  <span className={`inline-block text-xs px-3 py-1 rounded-full ${statusInfo.className}`}>
+                  <span
+                    className={`inline-block text-xs px-3 py-1 rounded-full ${statusInfo.className}`}
+                  >
                     {statusInfo.label}
                   </span>
                   {athlete.updated_at && (
@@ -131,7 +139,10 @@ export default function AthleteDetailPage({ params }: Props) {
 
             <div className="flex items-center gap-3">
               <Link href={`/coach/athletes/${id}/edit`}>
-                <AppButton variant="ghost" className="text-[#5954E6] border border-[#5954E6]">
+                <AppButton
+                  variant="ghost"
+                  className="text-[#5954E6] border border-[#5954E6]"
+                >
                   Edit Profile
                 </AppButton>
               </Link>
@@ -265,7 +276,9 @@ export default function AthleteDetailPage({ params }: Props) {
           <div className="col-span-4 space-y-6">
             {/* Basic Information */}
             <div className="rounded-lg border bg-white p-4">
-              <div className="text-sm font-semibold mb-4">Basic Information</div>
+              <div className="text-sm font-semibold mb-4">
+                Basic Information
+              </div>
               <div className="space-y-3 text-sm">
                 <div>
                   <div className="text-xs text-slate-500">Email</div>
@@ -274,26 +287,34 @@ export default function AthleteDetailPage({ params }: Props) {
                 {athlete.birthday && (
                   <div>
                     <div className="text-xs text-slate-500">Date of Birth</div>
-                    <div className="text-slate-700 mt-1">{formatDate(athlete.birthday)}</div>
+                    <div className="text-slate-700 mt-1">
+                      {formatDate(athlete.birthday)}
+                    </div>
                   </div>
                 )}
                 {athlete.gender && (
                   <div>
                     <div className="text-xs text-slate-500">Gender</div>
-                    <div className="text-slate-700 mt-1 capitalize">{athlete.gender}</div>
+                    <div className="text-slate-700 mt-1 capitalize">
+                      {athlete.gender}
+                    </div>
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-3">
                   {athlete.height !== null && (
                     <div>
                       <div className="text-xs text-slate-500">Height</div>
-                      <div className="text-slate-700 mt-1">{athlete.height} cm</div>
+                      <div className="text-slate-700 mt-1">
+                        {athlete.height} cm
+                      </div>
                     </div>
                   )}
                   {athlete.weight !== null && (
                     <div>
                       <div className="text-xs text-slate-500">Weight</div>
-                      <div className="text-slate-700 mt-1">{athlete.weight} kg</div>
+                      <div className="text-slate-700 mt-1">
+                        {athlete.weight} kg
+                      </div>
                     </div>
                   )}
                 </div>
@@ -306,7 +327,9 @@ export default function AthleteDetailPage({ params }: Props) {
                 {athlete.jersey_number !== null && (
                   <div>
                     <div className="text-xs text-slate-500">Jersey Number</div>
-                    <div className="text-slate-700 mt-1">#{athlete.jersey_number}</div>
+                    <div className="text-slate-700 mt-1">
+                      #{athlete.jersey_number}
+                    </div>
                   </div>
                 )}
               </div>
@@ -314,13 +337,22 @@ export default function AthleteDetailPage({ params }: Props) {
 
             <div className="rounded-lg border bg-white p-4 ring-2 ring-[#EEF2FF]">
               <div className="text-sm font-semibold">AI Insight</div>
-              <div className="text-xs text-slate-500 mt-3">
-                “Fatigue levels are peaking and Marcus reported increased
-                tightness in the left hamstring. Recommend reducing high-speed
-                running by 15% for tomorrow is recovery session.”
+              <div className="text-sm text-slate-500 mt-3 space-y-2">
+                <div>- Fatigue levels are peaking</div>
+                <div>
+                  - Marcus reported increased tightness in the left hamstring
+                </div>
+                <div>- Recommend reducing high-speed running by 15%</div>
+                <div>- Recovery session recommended for tomorrow</div>
               </div>
-              <div className="mt-4">
-                <AppButton>View Recommendation</AppButton>
+              <div className="mt-4 p-3 bg-[#EEF2FF] rounded-lg border border-[#D0D7FF]">
+                <div className="text-sm font-bold gap-2"> Recommendation</div>
+
+                <div className="text-xs font-medium text-[#5954E6] space-y-2">
+                  <div>✓ Reduce high-speed drills by 15%</div>
+                  <div>✓ Schedule recovery session for tomorrow</div>
+                  <div>✓ Monitor left hamstring closely</div>
+                </div>
               </div>
             </div>
 

@@ -41,12 +41,12 @@ const STATUS_CONFIG = {
     className: "bg-red-100 text-red-600",
   },
   exertion_warning: {
-    label: "Exertion Warning",
-    className: "bg-orange-100 text-orange-600",
+    label: "Normal",
+    className: "bg-green-100 text-green-600",
   },
   threshold_break: {
-    label: "Threshold Break",
-    className: "bg-pink-100 text-pink-600",
+    label: "Normal",
+    className: "bg-green-100 text-green-600",
   },
 } as const;
 
@@ -165,7 +165,7 @@ function FlaggedAthletesTable() {
         <TableBody>
           {FLAGGED_ATHLETES.map((athlete) => (
             <TableRow key={athlete.id}>
-              <TableCell>
+              <TableCell className="">
                 <div className="flex items-center gap-3">
                   <div className="h-9 w-9 rounded-full bg-slate-200" />
                   <div>
@@ -181,7 +181,7 @@ function FlaggedAthletesTable() {
               </TableCell>
 
               <TableCell>
-                <span className="font-medium text-orange-500">
+                <span className="font-medium text-green-500">
                   {athlete.pain}
                 </span>
                 <span className="text-xs text-slate-400"> /10</span>
