@@ -240,7 +240,7 @@ export default function CoachDashboardPage() {
                   <div className="col-span-5 flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-slate-200" />
                     <div>
-                      <div className="font-medium text-sm">Marcus Rashford</div>
+                      <div className="font-medium text-sm">Leon</div>
                       <div className="text-xs text-slate-400">Left Wing</div>
                     </div>
                   </div>

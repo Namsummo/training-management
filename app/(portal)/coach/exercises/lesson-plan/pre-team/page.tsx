@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowUp,
+  BotIcon,
   CheckCircle2,
   Clock,
   FileText,
@@ -125,6 +126,7 @@ function FlagStatusBadge({ status }: FlagStatusBadgeProps) {
 
 // Flagged Athletes Table Component
 function FlaggedAthletesTable() {
+  const router = useRouter();
   return (
     <div className="rounded-xl border bg-white">
       {/* Header */}
@@ -196,8 +198,12 @@ function FlaggedAthletesTable() {
               </TableCell>
 
               <TableCell className="text-right">
-                <Button size="sm" className="bg-slate-900 hover:bg-slate-800">
-                  Review Athlete
+                <Button
+                  size="sm"
+                  className="bg-slate-900 hover:bg-slate-800"
+                  onClick={() => router.push(`/coach/athletes/${athlete.id}`)}
+                >
+                  View Detail
                 </Button>
               </TableCell>
             </TableRow>
@@ -317,7 +323,8 @@ export default function PreTeamPage() {
         {/* ===== Next Session Preview ===== */}
         <div className="rounded-xl border bg-indigo-50 p-6 flex flex-col justify-between">
           <div>
-            <h3 className="font-semibold text-slate-900 mb-2">
+            <h3 className=" flex gap-2 font-semibold text-slate-900 mb-2">
+              <BotIcon size={20} />
               Next Session Preview
             </h3>
 

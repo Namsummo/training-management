@@ -4,22 +4,26 @@ export type AthleteStatus =
   | "unavailable"
   | "no_response";
 
+export type ActiveStatus = "active" | "inactive";
+
 export interface Athlete {
   id: number;
   name: string;
   role: string;
   unit: string;
-  status: AthleteStatus;
+  status: AthleteStatus; // available | limited | ...
+  statusActive: ActiveStatus; // active | inactive
   note: string;
 }
 
 export const ATHLETES: Athlete[] = [
   {
     id: 1,
-    name: "Marcus Rashford",
+    name: "Leon",
     role: "Forward",
     unit: "Attack",
     status: "available",
+    statusActive: "active",
     note: "Full participation. Sleep score 88/100.",
   },
   {
@@ -28,6 +32,7 @@ export const ATHLETES: Athlete[] = [
     role: "Defender",
     unit: "Defense",
     status: "limited",
+    statusActive: "inactive",
     note: "Calf Strain. Rehab Pitch 3 only. No contact.",
   },
   {
@@ -36,6 +41,7 @@ export const ATHLETES: Athlete[] = [
     role: "Midfielder",
     unit: "Midfield",
     status: "no_response",
+    statusActive: "inactive",
     note: "Last active: 4h ago",
   },
   {
@@ -44,9 +50,11 @@ export const ATHLETES: Athlete[] = [
     role: "Midfielder",
     unit: "Midfield",
     status: "unavailable",
+    statusActive: "inactive",
     note: "Medical Leave (Surgery). Out until next month.",
   },
 ];
+
 export type MetricKey =
   | "attendance"
   | "avg_rpe"
@@ -102,9 +110,9 @@ export interface FlaggedAthlete {
 export const FLAGGED_ATHLETES: FlaggedAthlete[] = [
   {
     id: "1",
-    name: "James Wilson",
+    name: "Leon",
     role: "Midfield",
-    rpe: 9,
+    rpe: 8,
     pain: 6,
     area: "Left Hamstring",
     status: "high_strain",
@@ -113,7 +121,7 @@ export const FLAGGED_ATHLETES: FlaggedAthlete[] = [
     id: "2",
     name: "David Miller",
     role: "Forward",
-    rpe: 8,
+    rpe: 1,
     pain: 5,
     area: "Right Ankle",
     status: "exertion_warning",
@@ -122,7 +130,7 @@ export const FLAGGED_ATHLETES: FlaggedAthlete[] = [
     id: "3",
     name: "Leo Garcia",
     role: "Defender",
-    rpe: 10,
+    rpe: 1,
     pain: 2,
     area: "General Fatigue",
     status: "threshold_break",

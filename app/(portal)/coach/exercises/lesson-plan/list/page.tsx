@@ -144,7 +144,7 @@ export default function Page() {
                 <TableHead>Status</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Athletes</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-right pr-2">Actions</TableHead>
               </TableRow>
             </TableHeader>
 
@@ -199,6 +199,9 @@ export default function Page() {
                   {/* Actions */}
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-3">
+                      <Button onClick={() => router.push("./pre-preview")}>
+                        Start training
+                      </Button>
                       <Button
                         className="text-slate-500 hover:text-slate-900 border-none"
                         variant="outline"

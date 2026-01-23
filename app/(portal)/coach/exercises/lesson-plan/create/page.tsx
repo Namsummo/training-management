@@ -1240,29 +1240,6 @@ export default function CreateLessonPlanPage() {
                 </div>
               </div>
 
-              <div className="rounded border bg-orange-50 p-4">
-                <div className="flex items-start gap-3">
-                  <div className="text-orange-600">⚠️</div>
-                  <div>
-                    <div className="font-medium text-orange-700">
-                      Conflict Warning
-                    </div>
-                    <div className="text-sm text-orange-600 mt-1">
-                      4 sessions in this plan overlap with existing "Team
-                      Strategy" meetings. How would you like to handle these?
-                    </div>
-                    <div className="mt-3 flex gap-2">
-                      <button className="px-3 py-2 bg-orange-600 text-white rounded">
-                        Auto-Reschedule Conflicts
-                      </button>
-                      <button className="px-3 py-2 border rounded">
-                        Skip Conflicting Days
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               <div className="rounded border bg-white p-4">
                 <div className="text-sm font-medium mb-3">
                   2. Generated Calendar Preview
@@ -1283,20 +1260,18 @@ export default function CreateLessonPlanPage() {
                     </div>
                   </div>
 
-                  <div className="rounded border-l-4 border-orange-300 bg-orange-50 p-3 flex items-center justify-between">
+                  <div className="rounded border-l-4 border-white  p-3 flex items-center justify-between">
                     <div>
-                      <div className="text-xs text-orange-600">Nov 01</div>
+                      <div className="text-xs text-white-600">Nov 01</div>
                       <div className="font-medium">
-                        Session 2: Hypertrophy Split A{" "}
-                        <span className="text-sm text-orange-600">
-                          CONFLICT
-                        </span>
+                        Session 2: Hypertrophy Split A
+                        <span className="text-sm text-white">CONFLICT</span>
                       </div>
                       <div className="text-xs text-slate-400">
                         08:00 AM - 09:30 AM • Overlaps with: Team Strategy
                       </div>
                     </div>
-                    <div className="text-sm text-orange-600">Reschedule</div>
+                    <div className="text-sm text-white">Reschedule</div>
                   </div>
 
                   <div className="rounded bg-slate-50 p-3">

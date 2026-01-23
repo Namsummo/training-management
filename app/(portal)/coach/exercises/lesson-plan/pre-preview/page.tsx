@@ -197,6 +197,9 @@ export default function Page() {
                     <TableCell className="text-sm text-slate-600">
                       {athlete.note}
                     </TableCell>
+                    <TableCell>
+                      <StatusBadge status={athlete.statusActive} />
+                    </TableCell>
 
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">

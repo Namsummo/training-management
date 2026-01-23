@@ -72,7 +72,7 @@ export default function SessionEvaluationPage() {
             <PerformanceGroup
               title="Top Performers"
               tone="success"
-              players={["Marcus Rashford", "Bruno Fernandes"]}
+              players={["Leon", "Bruno Fernandes"]}
             />
 
             {/* Needs Improvement */}
